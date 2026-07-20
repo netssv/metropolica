@@ -4,7 +4,7 @@ import { buildRoadGraph, findRoadRoute, type RoadGraph } from './trafficSystem';
 type Tile = { type?: string } | null;
 type Point = { col: number; row: number };
 type Citizen = { id: string; level: number; homeTile?: Point; workTile?: Point; workShift?: { startHour: number; endHour: number } };
-type Trip = { id: string; route: Point[]; progress: number; day: number };
+type Trip = { id: string; route: Point[]; progress: number; direction: 1 | -1; day: number };
 
 function key(point: Point) { return `${point.col},${point.row}`; }
 const ROAD_TYPES = new Set(['road', 'bridge']);
@@ -43,16 +43,17 @@ export function createCitizenTransit() {
       if (route.length < 2 && key(from) !== key(to)) route = [from, to];
       if (route.length > 1) {
         const previous = preserveTrips ? previousTrips.get(citizen.id) : undefined;
-        nextTrips.set(citizen.id, { id: citizen.id, route, progress: previous?.progress ?? 0, day });
+        const trip = { id: citizen.id, route, progress: previous?.progress ?? 0, direction: previous?.direction ?? 1, day } as Trip;
+        nextTrips.set(citizen.id, trip);
+        if (!previous) console.info('[citizen transit] trip initialized', { id: citizen.id, home: citizen.homeTile, work: citizen.workTile, from, to, routeLength: route.length });
       }
     }
     trips.clear();
     for (const [id, trip] of nextTrips) trips.set(id, trip);
-    console.log('[citizen transit] rebuild', { day, preserved: preserveTrips, activeCitizens: citizens.filter(item => item.level === 3).length, assigned: citizens.filter(item => item.level === 3 && item.homeTile && item.workTile).length, commuters: trips.size });
   };
 
   return {
-    updateAndDraw(ctx: CanvasRenderingContext2D, time: number, ox: number, oy: number, zoom: number, map: Tile[][], citizens: Citizen[], day: number, simulationSpeed = 1) {
+    updateAndDraw(ctx: CanvasRenderingContext2D, time: number, ox: number, oy: number, zoom: number, map: Tile[][], citizens: Citizen[], day: number, simulationSpeed = 1, render = true) {
       frameCount++;
       const signature = roadSignature(map);
       const activeSignature = citizens.filter(citizen => citizen.level === 3).map(citizen =>
@@ -69,14 +70,19 @@ export function createCitizenTransit() {
       lastTime = time;
       for (const trip of trips.values()) {
       // One visual commute leg represents the eight-hour 08:00–16:00 shift.
-      trip.progress = Math.min(1, trip.progress + dt / 8);
-        const segment = Math.min(trip.route.length - 2, Math.floor(trip.progress * (trip.route.length - 1)));
-        const local = trip.progress * (trip.route.length - 1) - segment;
+      trip.progress += trip.direction * dt / 8;
+      if (trip.progress >= 1) { trip.progress = 1; trip.direction = -1; }
+      if (trip.progress <= 0) { trip.progress = 0; trip.direction = 1; }
+        const routePosition = trip.progress * (trip.route.length - 1);
+        const segment = Math.min(trip.route.length - 2, Math.floor(routePosition));
+        const local = routePosition - segment;
         const from = trip.route[segment], to = trip.route[segment + 1];
         const iso = gridToIso(from.col + (to.col - from.col) * local, from.row + (to.row - from.row) * local);
         const cx = (iso.x + ISO_TILE_W / 2) * zoom + ox;
         const cy = (iso.y + ISO_TILE_H / 2) * zoom + oy;
         positions.set(trip.id, { cx, cy });
+        if (frameCount % 30 === 0) console.info('[citizen transit] position', { id: trip.id, progress: +trip.progress.toFixed(4), direction: trip.direction, x: +cx.toFixed(1), y: +cy.toFixed(1) });
+        if (!render) continue;
         ctx.save(); ctx.translate(cx, cy - 6 * zoom);
         // Purposeful citizen vehicle: gold body and teal windshield, distinct
         // from red anonymous ambient traffic.
@@ -87,7 +93,6 @@ export function createCitizenTransit() {
         ctx.fillStyle = '#fff1b8'; ctx.fillRect(-w * .72, -h * .9, w * .2, h * .16); ctx.fillRect(w * .52, -h * .9, w * .2, h * .16);
         ctx.restore();
       }
-      if (frameCount % 60 === 0) console.log('[citizen transit] snapshot', { frameCount, day, commuters: [...trips.values()].map(trip => ({ id: trip.id, progress: trip.progress })) });
     },
     getCitizenAt(x: number, y: number, citizens: Citizen[]) {
       let closest: Citizen | undefined;

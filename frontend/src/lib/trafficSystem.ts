@@ -2,12 +2,14 @@ import { gridToIso, ISO_TILE_H, ISO_TILE_W } from './isoMath';
 
 type Tile = { type?: string } | null;
 type Node = { col: number; row: number };
-type Car = { col: number; row: number; next: Node; previous?: Node; progress: number; speed: number; route: Node[]; routeIndex: number };
+type VehicleKind = 'car' | 'taxi' | 'bus' | 'firefighter' | 'police' | 'ambulance' | 'vip';
+type Car = { id: number; col: number; row: number; next: Node; previous?: Node; progress: number; speed: number; route: Node[]; routeIndex: number; kind: VehicleKind };
 export type RoadGraph = Map<string, Node[]>;
 
 const MAX_CARS = 8;
 const ROAD_TYPES = new Set(['road', 'bridge']);
 const DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+const VEHICLE_KINDS: VehicleKind[] = ['car', 'taxi', 'bus', 'firefighter', 'police', 'ambulance', 'vip'];
 
 function key(col: number, row: number) { return `${col},${row}`; }
 function roadSignature(map: Tile[][]) {
@@ -47,7 +49,6 @@ export function findRoadRoute(graph: RoadGraph, start: Node, goal: Node): Node[]
 }
 
 export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
-  console.log('%c[TRAFFIC SYSTEM INIT]', 'background: blue; color: white; font-size: 20px');
   let graph = new Map<string, Node[]>();
   let graphSignature = '';
     let cars: Car[] = [];
@@ -55,7 +56,7 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
   let lastTime = 0;
   let frameCount = 0;
   let lastSnapshotFrame = 0;
-  const positions = new Map<string, { cx: number; cy: number; from: string; to: string }>();
+  const positions = new Map<string, { cx: number; cy: number; from: string; to: string; col: number; row: number; kind: VehicleKind }>();
 
   const routeToBuilding = (start: Node) => {
     const candidates = destinations
@@ -66,6 +67,21 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
       if (route.length > 1) return route;
     }
     return [start, ...(graph.get(key(start.col, start.row)) ?? [])].slice(0, 2);
+  };
+
+  type SignalState = 'red' | 'yellow' | 'green';
+  const signalState = (axis: 'horizontal' | 'vertical', time: number): SignalState => {
+    const phase = (time % 9000) / 9000;
+    if (phase < 0.45) return axis === 'horizontal' ? 'green' : 'red';
+    if (phase < 0.5) return axis === 'horizontal' ? 'yellow' : 'red';
+    if (phase < 0.95) return axis === 'vertical' ? 'green' : 'red';
+    return axis === 'vertical' ? 'yellow' : 'red';
+  };
+
+  const isRedSignal = (node: Node, time: number, axis: 'horizontal' | 'vertical') => {
+    const neighbors = graph.get(key(node.col, node.row)) ?? [];
+    if (neighbors.length < 3) return false;
+    return signalState(axis, time) !== 'green';
   };
 
   const rebuild = (map: Tile[][]) => {
@@ -82,30 +98,26 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
       if (road) destinations.push(road);
     }
     if (!destinations.length) destinations = usable;
-    // The initial camera is centered on the map. Prefer connected road nodes
-    // near that center so the first car pool is visible immediately instead
-    // of deterministically spawning all cars at map-edge roads.
-    const centerCol = (map[0]?.length ?? 0) / 2;
-    const centerRow = map.length / 2;
-    const visibleFirst = [...usable].sort((a, b) =>
-      Math.abs(a.col - centerCol) + Math.abs(a.row - centerRow) -
-      (Math.abs(b.col - centerCol) + Math.abs(b.row - centerRow))
-    );
+    // Spread cars across the network so ambient traffic does not appear from
+    // one central spawn point. Shuffle first, then keep generous separation.
+    const shuffled = [...usable].sort(() => Math.random() - 0.5);
     const starts: Node[] = [];
-    for (const candidate of visibleFirst) {
-      if (starts.every(start => Math.abs(start.col - candidate.col) + Math.abs(start.row - candidate.row) >= 8)) {
+    for (const candidate of shuffled) {
+      if (starts.every(start => Math.abs(start.col - candidate.col) + Math.abs(start.row - candidate.row) >= 12)) {
         starts.push(candidate);
       }
       if (starts.length === Math.min(MAX_CARS, usable.length)) break;
     }
+    // Very small maps may not have enough separated nodes; use evenly spread
+    // fallbacks rather than placing every car at the first road tile.
     while (starts.length < Math.min(MAX_CARS, usable.length)) {
-      starts.push(visibleFirst[starts.length % visibleFirst.length]);
+      starts.push(usable[Math.floor(starts.length * usable.length / Math.min(MAX_CARS, usable.length))]);
     }
     const freshCars = Array.from({ length: Math.min(MAX_CARS, usable.length) }, (_, index) => {
       const start = starts[index];
       const options = graph.get(key(start.col, start.row))!;
       const route = routeToBuilding(start);
-      return { col: start.col, row: start.row, next: route[1] ?? options[index % options.length], progress: 0, speed: 1.3 + (index % 3) * 0.22, route, routeIndex: 1 };
+      return { id: index, col: start.col, row: start.row, next: route[1] ?? options[index % options.length], progress: 0, speed: 1.3 + (index % 3) * 0.22, route, routeIndex: 1, kind: VEHICLE_KINDS[index % VEHICLE_KINDS.length] };
     });
     // Editing a tile rebuilds the road graph, but must not restart animation.
     // Keep cars on still-valid segments, including their current progress and
@@ -118,62 +130,105 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
       }
       return replacement;
     });
-    console.log('[traffic] graph rebuild', { roadTiles: nodes.length, usableNodes: usable.length, carPool: cars });
   };
 
-  const drawCar = (ctx: CanvasRenderingContext2D, car: Car, ox: number, oy: number, zoom: number) => {
+  const drawCar = (ctx: CanvasRenderingContext2D, car: Car, ox: number, oy: number, zoom: number, render = true) => {
     const x = car.col + (car.next.col - car.col) * car.progress;
     const y = car.row + (car.next.row - car.row) * car.progress;
     const iso = gridToIso(x, y);
     const cx = (iso.x + ISO_TILE_W / 2) * zoom + ox;
     const cy = (iso.y + ISO_TILE_H / 2) * zoom + oy;
-    positions.set(`${car.col},${car.row}`, {
-      cx, cy, from: `${car.col},${car.row}`, to: `${car.next.col},${car.next.row}`
+    positions.set(String(car.id), {
+      cx, cy, from: `${car.col},${car.row}`, to: `${car.next.col},${car.next.row}`, col: x, row: y, kind: car.kind,
     });
-    const w = Math.max(9, 18 * zoom);
-    const h = Math.max(5, 10 * zoom);
-    console.log('[traffic] final canvas position', {
-      cx, cy, w, h, zoom,
-      canvas: { width: ctx.canvas.width, height: ctx.canvas.height },
-      visible: cx >= -w && cx <= ctx.canvas.width + w && cy >= -h && cy <= ctx.canvas.height + h,
-    });
+    if (!render) return;
+    const palettes: Record<VehicleKind, { body: string; accent: string; roof: string }> = {
+      car: { body: '#d84b3e', accent: '#8ed0d8', roof: '#15191c' },
+      taxi: { body: '#f5c542', accent: '#202b31', roof: '#3b3218' },
+      bus: { body: '#2d9b83', accent: '#b9eee3', roof: '#153a39' },
+      firefighter: { body: '#d9362e', accent: '#f5c542', roof: '#20252a' },
+      police: { body: '#315b9b', accent: '#c9e7ff', roof: '#172238' },
+      ambulance: { body: '#f1f1e8', accent: '#d93636', roof: '#27343b' },
+      vip: { body: '#6d4bc4', accent: '#e6d8ff', roof: '#191326' },
+    };
+    const palette = palettes[car.kind ?? 'car'];
+    const scale = car.kind === 'bus' ? 1.2 : 1;
+    const w = Math.max(4, 8 * zoom) * scale;
+    const h = Math.max(2, 3.5 * zoom);
     ctx.save();
     ctx.translate(cx, cy - 3 * zoom);
-    const angle = Math.atan2(car.next.row - car.row, car.next.col - car.col);
-    ctx.rotate(angle * 0.5);
-    ctx.shadowColor = 'rgba(255, 230, 140, 0.8)';
-    ctx.shadowBlur = Math.max(2, 5 * zoom);
-    // Readable top-down car: elongated body, cabin/windshield, wheels and
-    // headlights. The old symmetric diamond was technically moving but read
-    // as a stationary red dot at normal map zoom.
-    ctx.fillStyle = '#15191c';
-    ctx.fillRect(-w * 0.92, -h * 0.82, w * 1.84, h * 1.64);
-    ctx.fillStyle = '#d84b3e';
-    ctx.fillRect(-w * 0.82, -h * 0.65, w * 1.64, h * 1.3);
-    ctx.fillStyle = '#8ed0d8';
-    ctx.fillRect(-w * 0.38, -h * 0.48, w * 0.76, h * 0.96);
+    const nextIso = gridToIso(car.next.col, car.next.row);
+    const currentIso = gridToIso(car.col, car.row);
+    ctx.rotate(Math.atan2(nextIso.y - currentIso.y, nextIso.x - currentIso.x));
+    // Isometric pixel vehicle: a compact rhomboid follows the road axis and
+    // sits inside the tile diamond instead of looking like a flat 2D car.
+    ctx.fillStyle = palette.roof;
+    ctx.beginPath(); ctx.moveTo(-w, 0); ctx.lineTo(-w * .55, -h); ctx.lineTo(w * .62, -h); ctx.lineTo(w, 0); ctx.lineTo(w * .55, h); ctx.lineTo(-w * .68, h); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = palette.body;
+    ctx.beginPath(); ctx.moveTo(-w * .72, 0); ctx.lineTo(-w * .3, -h * .58); ctx.lineTo(w * .48, -h * .58); ctx.lineTo(w * .72, 0); ctx.lineTo(w * .35, h * .58); ctx.lineTo(-w * .5, h * .58); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = palette.accent;
+    ctx.beginPath(); ctx.moveTo(-w * .12, -h * .42); ctx.lineTo(w * .3, -h * .42); ctx.lineTo(w * .48, 0); ctx.lineTo(w * .2, h * .42); ctx.lineTo(-w * .12, h * .42); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#252a2e';
-    ctx.fillRect(-w * 0.98, -h * 0.68, w * 0.16, h * 0.42);
-    ctx.fillRect(w * 0.82, -h * 0.68, w * 0.16, h * 0.42);
-    ctx.fillRect(-w * 0.98, h * 0.26, w * 0.16, h * 0.42);
-    ctx.fillRect(w * 0.82, h * 0.26, w * 0.16, h * 0.42);
+    ctx.fillRect(-w * .72, -Math.max(1, zoom), Math.max(1, 2 * zoom), Math.max(1, 2 * zoom));
+    ctx.fillRect(w * .58, -Math.max(1, zoom), Math.max(1, 2 * zoom), Math.max(1, 2 * zoom));
+    ctx.fillRect(-w * .72, Math.max(0, h - 1.5 * zoom), Math.max(1, 2 * zoom), Math.max(1, 2 * zoom));
+    ctx.fillRect(w * .58, Math.max(0, h - 1.5 * zoom), Math.max(1, 2 * zoom), Math.max(1, 2 * zoom));
+    if (car.kind === 'firefighter' || car.kind === 'police' || car.kind === 'ambulance') {
+      ctx.fillStyle = '#e7f7ff';
+      ctx.fillRect(-Math.max(1, zoom), -Math.max(1, zoom), Math.max(2, 3 * zoom), Math.max(1, 2 * zoom));
+    }
     ctx.fillStyle = '#fff1b8';
-    ctx.fillRect(-w * 0.72, -h * 0.78, w * 0.22, h * 0.16);
-    ctx.fillRect(w * 0.5, -h * 0.78, w * 0.22, h * 0.16);
+    ctx.fillRect(w * .62, -Math.max(1, zoom), Math.max(1, 2 * zoom), Math.max(1, zoom));
     ctx.restore();
   };
 
+  const drawSemaphores = (ctx: CanvasRenderingContext2D, time: number, ox: number, oy: number, zoom: number) => {
+    if (zoom < 0.6) return;
+    for (const [intersection, neighbors] of graph) {
+      if (neighbors.length < 3) continue;
+      const [col, row] = intersection.split(',').map(Number);
+      const iso = gridToIso(col, row);
+      const cx = (iso.x + ISO_TILE_W / 2) * zoom + ox;
+      const cy = (iso.y + ISO_TILE_H / 2) * zoom + oy;
+      const radius = Math.max(2, 3.5 * zoom);
+      const drawHead = (x: number, y: number, axis: 'horizontal' | 'vertical') => {
+        const state = signalState(axis, time);
+        ctx.fillStyle = '#20252a';
+        ctx.fillRect(x - 4 * zoom, y - 18 * zoom, 8 * zoom, 10 * zoom);
+        for (const [index, light] of (['red', 'yellow', 'green'] as SignalState[]).entries()) {
+          ctx.fillStyle = state === light ? ({ red: '#ef4444', yellow: '#facc15', green: '#22c55e' }[light]) : ({ red: '#4b1717', yellow: '#4a3d12', green: '#123d23' }[light]);
+          ctx.beginPath(); ctx.arc(x, y - (15 - index * 3) * zoom, radius, 0, Math.PI * 2); ctx.fill();
+        }
+      };
+      ctx.save();
+      ctx.strokeStyle = 'rgba(20, 20, 20, .9)';
+      ctx.lineWidth = Math.max(1, zoom * 1.5);
+      ctx.beginPath(); ctx.moveTo(cx, cy - 2 * zoom); ctx.lineTo(cx, cy - 13 * zoom); ctx.stroke();
+      // Keep the two directional heads visibly separate: vertical traffic is
+      // controlled by the left head, horizontal traffic by the right head.
+      drawHead(cx - 12 * zoom, cy - 2 * zoom, 'vertical');
+      drawHead(cx + 12 * zoom, cy + 10 * zoom, 'horizontal');
+      ctx.restore();
+    }
+  };
+
   return {
-    updateAndDraw(ctx: CanvasRenderingContext2D, time: number, ox: number, oy: number, zoom: number, simulationSpeed = 1) {
+    updateAndDraw(ctx: CanvasRenderingContext2D, time: number, ox: number, oy: number, zoom: number, simulationSpeed = 1, render = true) {
       frameCount += 1;
       const map = tileMapRef.current;
       const signature = roadSignature(map);
       if (signature !== graphSignature) rebuild(map);
-      console.log('[traffic] frame', { carCount: cars.length, cars, graphNodes: graph.size, camera: { ox, oy, zoom } });
       if (!cars.length) return;
       const dt = lastTime ? Math.min(0.05, (time - lastTime) / 1000) * simulationSpeed : 0;
       lastTime = time;
+      if (render) drawSemaphores(ctx, time, ox, oy, zoom);
       for (const car of cars) {
+        const nextNode = car.next;
+        const axis = car.col === car.next.col ? 'vertical' : 'horizontal';
+        if (car.progress >= 0.82 && isRedSignal(nextNode, time, axis)) {
+          drawCar(ctx, car, ox, oy, zoom, render);
+          continue;
+        }
         car.progress += car.speed * dt;
         while (car.progress >= 1) {
           car.progress -= 1;
@@ -200,29 +255,15 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
             car.next = car.route[1];
           }
         }
-        console.log('[traffic] draw car', { col: car.col, row: car.row, next: car.next, progress: car.progress, speed: car.speed });
-        drawCar(ctx, car, ox, oy, zoom);
-      }
-      if (frameCount - lastSnapshotFrame >= 60) {
-        lastSnapshotFrame = frameCount;
-        console.log('[traffic] snapshot', {
-          frameCount,
-          time,
-          cars: cars.map(car => {
-            const iso = gridToIso(car.col + (car.next.col - car.col) * car.progress, car.row + (car.next.row - car.row) * car.progress);
-            const cx = (iso.x + ISO_TILE_W / 2) * zoom + ox;
-            const cy = (iso.y + ISO_TILE_H / 2) * zoom + oy;
-            return { col: car.col, row: car.row, progress: car.progress, cx, cy,
-              visible: cx >= 0 && cx <= ctx.canvas.width && cy >= 0 && cy <= ctx.canvas.height };
-          }),
-        });
+        drawCar(ctx, car, ox, oy, zoom, render);
       }
     },
     getCarAt(x: number, y: number) {
-      for (const [location, position] of positions) {
-        if (Math.hypot(position.cx - x, position.cy - y) < 24) return { location, kind: 'traffic-car', from: position.from, to: position.to };
+      for (const [id, position] of positions) {
+        if (Math.hypot(position.cx - x, position.cy - y) < 24) return { id, kind: 'traffic-car', vehicleType: position.kind, from: position.from, to: position.to, location: `${Math.round(position.col)},${Math.round(position.row)}` };
       }
       return undefined;
     },
+    getPosition(id: string) { return positions.get(id); },
   };
 }

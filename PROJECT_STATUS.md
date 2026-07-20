@@ -12,6 +12,87 @@ tracked citizens can be activated around important events, policies, organizatio
 
 ## Current sprint
 
+**Sprint 21 follow-up — Directional intersection signals**
+
+Traffic intersections now use coordinated axis-specific signals. Horizontal traffic receives
+green/yellow phases while vertical traffic is red, then the phases swap. Vehicles consult the
+signal for their actual movement axis before entering an intersection, and the renderer displays
+separate, spatially separated heads for the horizontal and vertical directions. Traffic and
+citizen movement continue updating in the background when their low-zoom visuals are hidden.
+
+Traffic vehicles now use compact pixel-art variants for private cars, taxis, buses, fire trucks,
+police cars, ambulances and VIP vehicles. Variants are assigned deterministically to the existing
+ambient traffic pool and share the same road routes, signal rules and background-update behavior.
+Selecting an ambient vehicle now shows its variant, route endpoints and current road position,
+and the camera follows that vehicle while it moves.
+
+**Sprint 21 — City-size selection and dimension-aware map rendering**
+
+Completed:
+
+- New-city menu now offers five map sizes: Tiny, Small, Big, Very big and Enormous.
+- Map dimensions are generated from the selected city size and returned through game state;
+  the frontend no longer assumes a fixed `MAP_COLS × MAP_ROWS` grid.
+- Isometric camera centering, depth sorting, hover bounds, click hit-testing, minimap scaling
+  and minimap dragging all consume the live map dimensions.
+- Traffic graph construction and routing use the active map dimensions, including non-square maps.
+- Random city creation uses `crypto.getRandomValues()` with a timestamp fallback instead of the
+  low-range `Math.random()` seed path.
+- The Metropolica brand in the HUD opens the main menu, and the size selector is styled for the
+  dark Spanish UI.
+- Server reset/state handling now preserves the selected city dimensions so save/load and map
+  rendering remain aligned.
+
+Verification: frontend TypeScript compilation passes with `npx tsc --noEmit -p frontend/tsconfig.json`;
+the procedural-building follow-up also passes `git diff --check`. Full browser verification should
+cover each city size, save/load, minimap navigation and traffic on a freshly started local server.
+
+**Sprint 20 — Procedural pixel buildings with simulation-driven growth tiers**
+
+Building tiles now use code-drawn pixel art in `frontend/src/lib/buildingSprites.ts` rather than
+static `isometric-city` building sprites. Residential buildings use house roofs, commercial
+buildings use storefront blocks, and industrial buildings use factory blocks and smokestacks.
+Each zone has three visual tiers: undeveloped lot, small building, and developed building.
+Central power plants now use a blocky substation/power-line silhouette, and Parque tiles use
+procedural grass, paths, and trees. Both remain static infrastructure visuals because the current
+game state has no separate power-output or park-development tier.
+The first-pass tier formula uses district population, average income, and approval; it is applied
+in the frontend from existing `/api/state` data and does not mutate simulation state. Terrain and
+decorative assets remain credited to `isometric-city` as before.
+
+Follow-up fix: procedural building, power-plant and park renderers now paint the full terrain
+diamond before their footprint. No opaque black base or building shadow is drawn; all nine
+zone/tier combinations plus Central and Parque therefore remain seated on terrain instead of
+revealing the canvas background.
+
+**Sprint 19 — Detailed sprites, render optimization, and traffic/inspection fixes**
+
+Sprint 19 restores the detailed `isometric-city` building art as the default renderer and
+keeps performance work in the renderer rather than reducing visual fidelity.
+
+Completed:
+
+- Detailed residential, commercial, industrial and park sprites are decoded once, chroma-keyed
+  once, and copied into cached per-sprite canvases before rendering.
+- Isometric tiles are culled against the canvas viewport with a margin; the renderer reports
+  `[render-benchmark]` samples containing FPS, average frame time, visible tile count, total tile
+  count and zoom for before/after verification in the browser console.
+- A low-zoom fallback remains only below `0.4`; normal zoom levels use detailed sprites.
+- Inspection activation now returns the affected citizen in the `/api/inspect` response and logs
+  the resulting level/cause on the backend, making the Activar/Desactivar chain observable.
+- Traffic vehicles stop before intersection nodes while the shared signal is red.
+- The former red chroma-key fringe pass was removed; it could erase or tint legitimate sprite
+  pixels and was the source of the reported red shadow artifact.
+
+Verification note: the frontend compiled successfully during `next build`, but the build worker
+exited before completing its final TypeScript phase in this constrained environment. A targeted
+TypeScript scan reported no errors in `isoRenderer.ts`, `CanvasMap.tsx`, `trafficSystem.ts`, or
+`Dashboard.tsx`. Live API verification was blocked because the sandbox disallows binding port 3000;
+the browser console and backend log evidence are available when running `./start.sh` locally.
+
+Road polish remains unchanged because no specific road defect was provided; it needs Rodri's
+concrete visual feedback before further changes.
+
 **Sprint 18 follow-up — Citizen data, purposeful destinations, and UI inspection**
 
 The active work is now focused on making the small individually tracked citizen subset
@@ -24,8 +105,15 @@ Completed:
 
 - `scripts/start.sh` starts backend and frontend together, writes service logs, and maintains
   `STARTUP_BACKLOG.md` for startup failures.
-- The isometric renderer uses the current sprite sheet, removes red/pink chroma-key bleed, anchors
-  sprites to tile bottoms, and renders roads with distinct asphalt plus adjacency-aware markings.
+- The isometric renderer uses procedural pixel-art buildings for residential, commercial and
+  industrial zones, with three growth tiers driven by district population, average income and
+  approval. Central power plants and Parque tiles also use procedural silhouettes and decoration.
+- Building renderers paint the complete terrain diamond before the footprint, eliminating the
+  solid black square/base artifact across all nine zone-tier combinations, Central and Parque.
+- The remaining isometric sprite-sheet path removes red/pink chroma-key bleed, anchors sprites to
+  tile bottoms, and renders roads with distinct asphalt plus adjacency-aware markings.
+- The map generator, frontend canvas, minimap and traffic system share the live city dimensions
+  selected from the main menu rather than relying on fixed constants.
 - Ambient traffic (`frontend/src/lib/trafficSystem.ts`) uses a shared road graph and preserves car
   progress when roads are edited. Buildings do not rebuild traffic.
 - Active Level-3 citizens have backend-owned home/work tiles and commute markers in
@@ -68,8 +156,6 @@ Next recommended steps:
    not resetting existing citizen-trip progress.
 5. Run a real browser verification: activate two citizens, confirm both markers move, add a building,
    add a road, and confirm neither marker nor ambient traffic restarts.
-
-## Sprint 18 — Purposeful citizen movement
 
 ## Sprint 18 — Purposeful citizen movement
 

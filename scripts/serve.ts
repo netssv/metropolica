@@ -151,8 +151,10 @@ async function handleRequest(req: any, res: any) {
           game.inspectedCitizens.add(citizenId);
         }
         game.syncCitizenActivationNow();
+        const citizen = Object.values(game.citizens).flat().find((item: any) => item.id === citizenId);
+        console.log(`[inspect] ${citizenId} -> ${citizen ? `level ${citizen.level} (${citizen.activeCause ?? "inactive"}), home=(${citizen.homeTile?.col},${citizen.homeTile?.row}), work=(${citizen.workTile?.col},${citizen.workTile?.row})` : "not found"}`);
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true, inspected: Array.from(game.inspectedCitizens) }));
+        res.end(JSON.stringify({ success: true, inspected: Array.from(game.inspectedCitizens), citizen }));
       } catch (err: any) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));

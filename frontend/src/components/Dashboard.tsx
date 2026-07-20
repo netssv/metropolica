@@ -77,8 +77,9 @@ function CitizensTab({ simState }: { simState: any }) {
     try {
       console.log('[activar] request start', { id, endpoint: '/api/inspect' });
       const response = await fetch('/api/inspect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ citizenId: id }) });
-      const body = await response.text();
+      const body = await response.json();
       console.log('[activar] response', { status: response.status, ok: response.ok, body });
+      console.log('[activar] assigned commute coordinates', { id, home: body.citizen?.homeTile, work: body.citizen?.workTile, level: body.citizen?.level });
       if (!response.ok) throw new Error(`Activation request failed: ${response.status}`);
       console.log('[activar] state refresh start');
       await fetchState();

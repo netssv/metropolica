@@ -12,18 +12,16 @@
 
 import { ISO_TILE_W, ISO_TILE_H, gridToIso } from './isoMath';
 import { T } from './constants';
+import { drawBuilding, drawPark, drawPowerPlant, PROCEDURAL_DETAIL_ZOOM } from './buildingSprites';
 
 const SPRITE_COLS = 5;
 const SPRITE_ROWS = 6;
+// Buildings and water are drawn procedurally as small pixel-art shapes. This
+// avoids decoding and sampling the former multi-megabyte sprite sheets on
+// every map frame.
 let spriteSheet: HTMLCanvasElement | null = null;
-let waterImg: HTMLImageElement | null = null;
-
-function loadImg(src: string, onLoad?: (img: HTMLImageElement) => void): HTMLImageElement {
-  const img = new Image();
-  if (onLoad) img.onload = () => onLoad(img);
-  img.src = src;
-  return img;
-}
+let spriteImage: HTMLImageElement | null = null;
+const spriteCache = new Map<string, HTMLCanvasElement>();
 
 /**
  * The isometric-city sheet is an opaque PNG whose background is textured
@@ -77,37 +75,24 @@ function keySpriteSheet(img: HTMLImageElement) {
     if (y + 1 < height) enqueue(pixel + width);
     data[pixel * 4 + 3] = 0;
   }
-  // Remove anti-aliased pink/red fringe immediately beside the keyed
-  // background. Because this is restricted to keyed neighbors, red details
-  // inside the sprite remain untouched.
-  for (let pass = 0; pass < 2; pass++) for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const pixel = y * width + x;
-      const i = pixel * 4;
-      if (data[i + 3] === 0 || data[i] < 150 || data[i] <= data[i + 1] * 1.8 || data[i] <= data[i + 2] * 1.8) continue;
-      if (data[(pixel - 1) * 4 + 3] === 0 || data[(pixel + 1) * 4 + 3] === 0 ||
-          data[(pixel - width) * 4 + 3] === 0 || data[(pixel + width) * 4 + 3] === 0) {
-        data[i + 3] = 0;
-      }
-    }
-  }
   keyCtx.putImageData(pixels, 0, 0);
   spriteSheet = canvas;
+  spriteCache.clear();
+}
+
+function loadImg(src: string, onLoad: (img: HTMLImageElement) => void) {
+  const img = new Image();
+  img.onload = () => onLoad(img);
+  img.src = src;
 }
 
 export function ensureSpritesLoaded() {
-  if (!spriteSheet) loadImg('/sprites/tiles.png', keySpriteSheet);
-  if (!waterImg)   waterImg   = loadImg('/sprites/water.png');
+  if (!spriteImage) loadImg('/sprites/tiles.png', img => { spriteImage = img; keySpriteSheet(img); });
 }
 
 /** Sprite positions in the sheet (col, row) — 0-indexed */
 const SPRITE_POS: Record<string, Array<{ sc: number; sr: number }>> = {
   // Empty zones (T.ZONE_*) are NOT mapped here so they render as colored diamond terrain.
-  [T.BLDG_R]: [{ sc: 1, sr: 3 }, { sc: 2, sr: 3 }, { sc: 3, sr: 3 }],
-  [T.BLDG_C]: [{ sc: 4, sr: 3 }, { sc: 0, sr: 4 }],
-  [T.BLDG_I]: [{ sc: 1, sr: 4 }, { sc: 2, sr: 4 }, { sc: 3, sr: 4 }, { sc: 4, sr: 4 }],
-  [T.PARK]:   [{ sc: 0, sr: 1 }, { sc: 1, sr: 1 }],
-  [T.POWER]:  [{ sc: 2, sr: 2 }],
 };
 
 /** Solid diamond colours for terrain tiles that have no sprite */
@@ -118,6 +103,61 @@ const TERRAIN_COLOR: Record<string, string> = {
   [T.BRIDGE]: '#888',
   [T.TREE]:   '#1e5631',
 };
+
+function drawCachedSprite(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: number, type: string, variant: number) {
+  if (!spriteSheet) return false;
+  const position = SPRITE_POS[type]?.[variant];
+  if (!position) return false;
+  const cacheKey = `${type}:${variant}`;
+  let sprite = spriteCache.get(cacheKey);
+  const sw = spriteSheet.width / SPRITE_COLS;
+  const sh = spriteSheet.height / SPRITE_ROWS;
+  if (!sprite) {
+    sprite = document.createElement('canvas'); sprite.width = Math.ceil(sw); sprite.height = Math.ceil(sh);
+    const spriteCtx = sprite.getContext('2d');
+    if (!spriteCtx) return false;
+    spriteCtx.drawImage(spriteSheet, position.sc * sw, position.sr * sh, sw, sh, 0, 0, sw, sh);
+    spriteCache.set(cacheKey, sprite);
+  }
+  const drawW = ISO_TILE_W * zoom * 1.4;
+  const drawH = ISO_TILE_H * zoom * 3.2;
+  const tileBottomX = px + (ISO_TILE_W / 2) * zoom;
+  const tileBottomY = py + ISO_TILE_H * zoom;
+  ctx.drawImage(sprite, tileBottomX - drawW / 2, tileBottomY - drawH, drawW, drawH);
+  return true;
+}
+
+function drawPixelBuilding(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: number, type: string, variant: number, density: number) {
+  const hw = ISO_TILE_W * zoom * 0.32;
+  const hh = ISO_TILE_H * zoom * 0.32;
+  const cx = px + ISO_TILE_W * zoom * 0.5;
+  const baseY = py + ISO_TILE_H * zoom;
+  const heightClass = density >= 6 ? 4 : density >= 3 ? 3 : density >= 1 ? 2 : 1;
+  const height = (type === T.BLDG_I ? 15 : type === T.BLDG_C ? 20 : 16) * zoom * heightClass / 2 + (variant % 3) * 2 * zoom;
+  const color = type === T.BLDG_I ? '#b86b2d' : type === T.BLDG_C ? '#278f84' : '#4fa96a';
+  const top = { x: cx, y: baseY - hh * 2 };
+  const right = { x: cx + hw, y: baseY - hh };
+  const bottom = { x: cx, y: baseY };
+  const left = { x: cx - hw, y: baseY - hh };
+  const lift = height;
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.moveTo(left.x, left.y); ctx.lineTo(left.x, left.y - lift); ctx.lineTo(top.x, top.y - lift); ctx.lineTo(top.x, top.y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#276b68';
+  ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(top.x, top.y - lift); ctx.lineTo(right.x, right.y - lift); ctx.lineTo(right.x, right.y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#d6a84f';
+  ctx.beginPath();
+  ctx.moveTo(cx, top.y - lift - hh);
+  ctx.lineTo(right.x, right.y - lift);
+  ctx.lineTo(cx, baseY - lift);
+  ctx.lineTo(left.x, left.y - lift);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#b9e1df';
+  const windowSize = Math.max(1.5, 3 * zoom);
+  if (zoom >= 0.6) {
+    for (let y = left.y - lift + 7 * zoom; y < left.y - 3 * zoom; y += 8 * zoom) ctx.fillRect(left.x + 5 * zoom, y, windowSize, windowSize);
+    for (let y = top.y - lift + 7 * zoom; y < top.y - 3 * zoom; y += 8 * zoom) ctx.fillRect(top.x + 4 * zoom, y, windowSize, windowSize);
+  }
+}
 
 /** Draw an isometric diamond for terrain tiles. */
 function drawDiamond(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: number, color: string) {
@@ -134,6 +174,28 @@ function drawDiamond(ctx: CanvasRenderingContext2D, px: number, py: number, zoom
 }
 
 type TileMap = Array<Array<{ type?: string } | undefined>>;
+
+/** Reprojects the already-rendered isometric frame; this is the same map, not a second tile map. */
+export function drawOverviewMap(ctx: CanvasRenderingContext2D, source: HTMLCanvasElement, t: number, isoZoom: number, isoOx: number, isoOy: number, cols: number, rows: number) {
+  const pad = 24;
+  const cell = Math.min((ctx.canvas.width - pad * 2) / cols, (ctx.canvas.height - pad * 2) / rows);
+  const ox = (ctx.canvas.width - cols * cell) / 2;
+  const oy = (ctx.canvas.height - rows * cell) / 2;
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = '#07100d'; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  // Inverse of gridToIso: iso basis vectors become orthogonal top-down axes.
+  const sx = cell / (isoZoom * ISO_TILE_W);
+  const sy = cell / (isoZoom * ISO_TILE_H);
+  const a = sx * t + (1 - t), b = -sx * t;
+  const c = sy * t, d = sy * t + (1 - t);
+  const e = ox * t - sx * t * isoOx - sy * t * isoOy;
+  const f = oy * t - sy * t * isoOy + sx * t * isoOx;
+  ctx.globalAlpha = Math.min(1, t + 0.08);
+  ctx.setTransform(a, b, c, d, e, f);
+  ctx.drawImage(source, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+}
 
 function isRoadAt(map: TileMap | undefined, col: number, row: number): boolean {
   const type = map?.[row]?.[col]?.type;
@@ -160,6 +222,7 @@ function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: n
   ctx.moveTo(px + hw, py); ctx.lineTo(px + hw * 2, py + hh);
   ctx.lineTo(px + hw, py + hh * 2); ctx.lineTo(px, py + hh);
   ctx.closePath(); ctx.fill();
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return;
   ctx.strokeStyle = bridge ? '#d5b06b' : '#737b82';
   ctx.lineWidth = Math.max(1, zoom * 1.5);
   // Use the same adjacency model as the asphalt orientation. Each arm is
@@ -197,7 +260,7 @@ function drawCrisisTint(ctx: CanvasRenderingContext2D, px: number, py: number, z
 /** Draw one tile (terrain + optional sprite). `inCrisis` adds a red overlay. */
 export function drawIsoTile(
   ctx: CanvasRenderingContext2D,
-  tile: { type: string; inCrisis?: boolean },
+  tile: { type: string; inCrisis?: boolean; growthTier?: 0 | 1 | 2 },
   col: number,
   row: number,
   offsetX: number,
@@ -210,12 +273,10 @@ export function drawIsoTile(
   const py = y * zoom + offsetY;
 
   if (tile.type === T.WATER) {
-    if (waterImg?.complete) {
-      const tw = ISO_TILE_W * zoom;
-      const th = ISO_TILE_H * zoom;
-      ctx.drawImage(waterImg, px, py, tw, th);
-    } else {
-      drawDiamond(ctx, px, py, zoom, '#1a5f8a');
+    drawDiamond(ctx, px, py, zoom, '#1a5f8a');
+    if (zoom >= PROCEDURAL_DETAIL_ZOOM) {
+      ctx.strokeStyle = 'rgba(116, 210, 222, .55)'; ctx.lineWidth = Math.max(1, zoom);
+      ctx.beginPath(); ctx.moveTo(px + 8 * zoom, py + ISO_TILE_H * zoom * .5); ctx.lineTo(px + ISO_TILE_W * zoom * .5, py + 4 * zoom); ctx.stroke();
     }
     return;
   }
@@ -235,23 +296,29 @@ export function drawIsoTile(
     return;
   }
 
+  if (tile.type === T.BLDG_R || tile.type === T.BLDG_C || tile.type === T.BLDG_I ||
+      tile.type === T.ZONE_R || tile.type === T.ZONE_C || tile.type === T.ZONE_I) {
+    drawBuilding(tile.type, tile.growthTier ?? 0, { ctx, px, py, zoom });
+    if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
+    return;
+  }
+
+  if (tile.type === T.POWER) {
+    drawPowerPlant({ ctx, px, py, zoom });
+    if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
+    return;
+  }
+  if (tile.type === T.PARK) {
+    drawPark({ ctx, px, py, zoom });
+    if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
+    return;
+  }
+
   const spriteVariants = SPRITE_POS[tile.type];
-  if (spriteVariants && spriteSheet && spriteSheet.width > 0) {
-    const sprPos = spriteVariants[(col * 31 + row * 17) % spriteVariants.length];
-    const sw = spriteSheet.width / SPRITE_COLS;
-    const sh = spriteSheet.height / SPRITE_ROWS;
-    const drawW = ISO_TILE_W * zoom * 1.4;
-    const drawH = ISO_TILE_H * zoom * 3.2;
-    // Sprite-sheet cells include generous transparent/red padding. Anchor the
-    // rendered cell's bottom-center at the tile's bottom vertex, rather than
-    // using a fixed top-left offset from the previous asset set.
-    const tileBottomX = px + (ISO_TILE_W / 2) * zoom;
-    const tileBottomY = py + ISO_TILE_H * zoom;
-    ctx.drawImage(
-      spriteSheet,
-      sprPos.sc * sw, sprPos.sr * sh, sw, sh,
-      tileBottomX - drawW / 2, tileBottomY - drawH, drawW, drawH,
-    );
+  if (spriteVariants) {
+    const variant = (col * 31 + row * 17) % spriteVariants.length;
+    const drawn = zoom >= 0.4 && drawCachedSprite(ctx, px, py, zoom, tile.type, variant);
+    if (!drawn) drawPixelBuilding(ctx, px, py, zoom, tile.type, variant, 1);
   } else {
     // Fallback solid diamond while sprites load
     const zoneColors: Record<string, string> = {

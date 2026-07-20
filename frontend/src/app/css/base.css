@@ -55,6 +55,8 @@ html, body {
   touch-action: none;
   outline: none;
 }
+#city-overview-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; z-index: 1; }
+#city-overview-canvas.overview-active { pointer-events: auto; }
 
 .citizen-inspector {
   position: fixed; right: 18px; bottom: 18px; z-index: 60;
@@ -64,6 +66,11 @@ html, body {
   border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.45); font-size: 12px;
 }
 .test-minimap { position: fixed; z-index: 24; padding: 5px; background: rgba(13,24,22,.92); border: 1px solid rgba(245,197,66,.7); border-radius: 6px; pointer-events: auto; }
+.test-minimap, #city-canvas { transform-origin: center center; }
+.map-overview-hidden { opacity: 0; transform: none; pointer-events: none; }
+.test-minimap.minimap-overview { inset: 5vh 5vw; padding: 10px; display: flex; flex-direction: column; }
+.test-minimap.minimap-overview canvas { width: 100%; height: 100%; flex: 1; image-rendering: pixelated; }
+.render-diagnostics-copy { position: fixed; right: 16px; bottom: 16px; z-index: 24; padding: 6px 9px; border: 1px solid rgba(245,197,66,.5); border-radius: 4px; background: rgba(13,24,22,.92); color: #f5c542; font: 700 9px var(--mono); cursor: pointer; }
 .minimap-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: move; user-select: none; color: #f5c542; font: 700 9px var(--mono); letter-spacing: .08em; margin: 1px 3px 4px; }
 .minimap-header button, .minimap-show { border: 1px solid rgba(245,197,66,.5); border-radius: 3px; background: transparent; color: #f5c542; font: 700 9px var(--mono); cursor: pointer; padding: 2px 4px; }
 .minimap-show { position: fixed; top: 58px; right: 16px; z-index: 24; background: rgba(13,24,22,.92); }

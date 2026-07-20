@@ -84,7 +84,9 @@ if (exec 3<>"/dev/tcp/127.0.0.1/3001") 2>/dev/null; then
   exec 3>&-; record_failure "Port 3001 is already in use"; exit 1
 fi
 
-node "$ROOT_DIR/scripts/serve.ts" >"$BACKEND_LOG" 2>&1 &
+# Development servers reload themselves when source files change: Next.js
+# handles frontend HMR, while Node watches the backend and its imports.
+node --watch "$ROOT_DIR/scripts/serve.ts" >"$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 (
   cd "$ROOT_DIR/frontend"

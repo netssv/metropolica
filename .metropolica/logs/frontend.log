@@ -1,11 +1,107 @@
 ▲ Next.js 16.2.10 (Turbopack)
 - Local:         http://localhost:3001
 - Network:       http://192.168.68.55:3001
-✓ Ready in 2.7s
+✓ Ready in 1082ms
 
 [HOME RENDER]
- GET / 200 in 2.3s (next.js: 833ms, application-code: 1471ms)
+ GET / 200 in 1306ms (next.js: 570ms, application-code: 736ms)
+[HOME RENDER]
+ GET / 200 in 424ms (next.js: 97ms, application-code: 327ms)
+[HOME RENDER]
+ GET / 200 in 293ms (next.js: 28ms, application-code: 265ms)
+✓ Compiled in 214ms
+✓ Compiled in 299ms
+[HOME RENDER]
+ GET / 200 in 548ms (next.js: 38ms, application-code: 511ms)
+✓ Compiled in 180ms
+[HOME RENDER]
+ GET / 200 in 607ms (next.js: 15ms, application-code: 592ms)
+✓ Compiled in 401ms
+[HOME RENDER]
+ GET / 200 in 294ms (next.js: 25ms, application-code: 269ms)
+✓ Compiled in 1498ms
 [HOME RENDER]
 [HOME RENDER]
- GET / 200 in 857ms (next.js: 28ms, application-code: 829ms)
- GET / 200 in 688ms (next.js: 101ms, application-code: 588ms)
+ GET / 200 in 1141ms (next.js: 586ms, application-code: 555ms)
+ GET / 200 in 265ms (next.js: 35ms, application-code: 229ms)
+[HOME RENDER]
+ GET / 200 in 819ms (next.js: 39ms, application-code: 780ms)
+✓ Compiled in 296ms
+[HOME RENDER]
+ GET / 200 in 622ms (next.js: 33ms, application-code: 589ms)
+✓ Compiled in 260ms
+✓ Compiled in 155ms
+✓ Compiled in 165ms
+✓ Compiled in 267ms
+✓ Compiled in 263ms
+[HOME RENDER]
+ GET / 200 in 465ms (next.js: 50ms, application-code: 415ms)
+✓ Compiled in 618ms
+[HOME RENDER]
+ GET / 200 in 844ms (next.js: 24ms, application-code: 820ms)
+✓ Compiled in 1178ms
+✓ Compiled in 2.8s
+✓ Compiled in 620ms
+✓ Compiled in 650ms
+✓ Compiled in 546ms
+✓ Compiled in 382ms
+✓ Compiled in 347ms
+✓ Compiled in 923ms
+✓ Compiled in 413ms
+✓ Compiled in 307ms
+✓ Compiled in 220ms
+✓ Compiled in 168ms
+[HOME RENDER]
+ GET / 200 in 1113ms (next.js: 24ms, application-code: 1089ms)
+✓ Compiled in 370ms
+✓ Compiled in 920ms
+✓ Compiled in 1106ms
+✓ Compiled in 124ms
+✓ Compiled in 114ms
+✓ Compiled in 267ms
+✓ Compiled in 1351ms
+✓ Compiled in 406ms
+[HOME RENDER]
+ GET / 200 in 338ms (next.js: 41ms, application-code: 297ms)
+✓ Compiled in 546ms
+✓ Compiled in 92ms
+[HOME RENDER]
+ GET / 200 in 629ms (next.js: 27ms, application-code: 602ms)
+✓ Compiled in 465ms
+✓ Compiled in 197ms
+✓ Compiled in 193ms
+✓ Compiled in 251ms
+[HOME RENDER]
+ GET / 200 in 1137ms (next.js: 47ms, application-code: 1090ms)
+✓ Compiled in 270ms
+✓ Compiled in 274ms
+[HOME RENDER]
+ GET / 200 in 1198ms (next.js: 49ms, application-code: 1149ms)
+✓ Compiled in 273ms
+✓ Compiled in 302ms
+✓ Compiled in 884ms
+[browser] Uncaught ReferenceError: Cannot access 'selectedEntity' before initialization
+    at CanvasMap (src/components/CanvasMap.tsx:31:31)
+    at Set.forEach (<anonymous>)
+    at Home (src/app/page.tsx:13:9)
+  29 |   currentToolRef.current = currentTool;
+  30 |   simStateRef.current = simState;
+> 31 |   selectedEntityRef.current = selectedEntity;
+     |                               ^
+  32 |   fetchStateRef.current = fetchState;
+  33 |   // Camera: offsetX/Y is the isometric world-origin in canvas space
+  34 |   const cameraRef = useRef({ ox: 0, oy: 0, zoom: 1 });
+✓ Compiled in 228ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[HOME RENDER]
+ GET / 200 in 620ms (next.js: 135ms, application-code: 485ms)
+✓ Compiled in 311ms
+✓ Compiled in 260ms
+[HOME RENDER]
+ GET / 200 in 653ms (next.js: 36ms, application-code: 617ms)
+✓ Compiled in 172ms
+[HOME RENDER]
+ GET / 200 in 526ms (next.js: 49ms, application-code: 477ms)
+✓ Compiled in 730ms
+✓ Compiled in 365ms
+✓ Compiled in 290ms
