@@ -1,0 +1,106 @@
+<div id="hud-bottom" class="collapsed">
+      <button id="hud-bottom-toggle" onclick="toggleDashboard()">
+        <span id="toggle-arrow">▲</span>
+        <span>Panel de Control</span>
+        <div id="dash-quick">
+          <span id="qs-districts">— distritos</span><span class="qs-dot">·</span>
+          <span id="qs-citizens">— ciudadanos</span><span class="qs-dot">·</span>
+          <span id="qs-orgs">— orgs</span><span class="qs-dot">·</span>
+          <span id="qs-corruption">Corr: —</span>
+        </div>
+      </button>
+
+      <div id="hud-bottom-content">
+        <div id="dash-tabs">
+          <button class="dash-tab active" id="dtab-districts" onclick="switchDashTab('districts')">📍 Distritos</button>
+          <button class="dash-tab"        id="dtab-citizens"  onclick="switchDashTab('citizens')">👥 Ciudadanos</button>
+          <button class="dash-tab"        id="dtab-orgs"      onclick="switchDashTab('orgs')">🏴 Orgs.</button>
+          <button class="dash-tab"        id="dtab-finance"   onclick="switchDashTab('finance')">💰 Finanzas</button>
+          <button class="dash-tab"        id="dtab-controls"  onclick="switchDashTab('controls')">⚙️ Ciudad</button>
+        </div>
+
+        <div id="dash-content">
+
+          <!-- Districts -->
+          <div id="dtab-content-districts" class="dash-pane active">
+            <div class="city-grid" id="districts-grid"></div>
+          </div>
+
+          <!-- Citizens -->
+          <div id="dtab-content-citizens" class="dash-pane">
+            <div class="filter-row">
+              <button id="filter-all"    class="filter-tab active" onclick="setFilterTab('all')">Todos</button>
+              <button id="filter-level3" class="filter-tab"        onclick="setFilterTab('level3')">Activistas</button>
+              <button id="filter-level2" class="filter-tab"        onclick="setFilterTab('level2')">Nivel 2</button>
+            </div>
+            <div id="citizens-list"></div>
+          </div>
+
+          <!-- Orgs -->
+          <div id="dtab-content-orgs" class="dash-pane">
+            <div class="pane-header">
+              <span class="pane-title">🏴 Organizaciones</span>
+              <span class="panel-badge" id="orgs-count">0 activas</span>
+            </div>
+            <div id="orgs-list"><div class="empty-state">Sin organizaciones activas.</div></div>
+          </div>
+
+          <!-- Finance -->
+          <div id="dtab-content-finance" class="dash-pane">
+            <div class="finance-cols">
+              <div>
+                <div class="pane-header">
+                  <span class="pane-title">💰 Tesoro</span>
+                  <span class="panel-badge" id="weekly-income-header">—</span>
+                </div>
+                <div class="treasury-big" id="treasury-balance">$0</div>
+                <div class="treasury-sub">Ingresos semanales: <strong id="weekly-income-main">—</strong></div>
+              </div>
+              <div>
+                <div class="pane-header">
+                  <span class="pane-title">📊 Opinión</span>
+                  <span class="panel-badge" id="opinion-tick-label">—</span>
+                </div>
+                <div id="opinion-breakdown"></div>
+              </div>
+            </div>
+            <div class="pane-header" style="margin-top:12px">
+              <span class="pane-title">📋 Eventos</span>
+              <span class="panel-badge" id="footprint-count">0</span>
+            </div>
+            <div id="footprint-log"></div>
+          </div>
+
+          <!-- Controls -->
+          <div id="dtab-content-controls" class="dash-pane">
+            <div class="controls-grid">
+              <div class="ctrl-block">
+                <label class="ctrl-label">Tasa Impositiva <span class="ctrl-val" id="tax-slider-val">15%</span></label>
+                <input type="range" id="tax-slider" min="0.0" max="1.0" step="0.01" value="0.15" class="game-slider">
+              </div>
+              <div class="ctrl-block">
+                <label class="ctrl-label">Nivel Auditoría <span class="ctrl-val" id="audit-slider-val">10%</span></label>
+                <input type="range" id="audit-slider" min="0.0" max="1.0" step="0.01" value="0.10" class="game-slider">
+              </div>
+              <div class="ctrl-block">
+                <label class="ctrl-label">Inversión Directa</label>
+                <select id="invest-district" class="game-select">
+                  <option value="none">— Seleccionar Distrito —</option>
+                  <option value="periferia">Periferia</option>
+                  <option value="centro">Centro</option>
+                  <option value="zona_industrial">Zona Industrial</option>
+                </select>
+              </div>
+              <div class="ctrl-block ctrl-actions">
+                <button class="ctrl-btn primary" id="btn-invest-water">💧 Invertir Agua ($300k)</button>
+                <button class="ctrl-btn"         id="btn-invest-social">🤝 Prog. Social ($100k)</button>
+              </div>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="ctrl-btn primary" id="btn-press-open2" onclick="openPressModal()">📢 Conferencia</button>
+            </div>
+          </div>
+
+        </div><!-- /dash-content -->
+      </div><!-- /hud-bottom-content -->
+    </div><!-- /hud-bottom -->

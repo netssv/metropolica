@@ -1,0 +1,15 @@
+{
+  "name": "metropolica",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/**/*.test.ts",
+    "simulate": "node test/headless-simulation.ts",
+    "play": "node test/play-scenario.ts",
+    "dev:backend": "node scripts/serve.ts",
+    "dev:frontend": "cd frontend && npm run dev -- -p 3001",
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "start:all": "bash scripts/start.sh",
+    "typecheck": "tsc --noEmit"
+  }
+}

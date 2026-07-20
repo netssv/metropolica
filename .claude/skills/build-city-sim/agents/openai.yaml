@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build City Sim"
+  short_description: "Build and test an original city-building simulation"
+  default_prompt: "Use $build-city-sim to create or improve a playable original city-building simulation in this repository."

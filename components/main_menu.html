@@ -1,0 +1,88 @@
+<div id="main-menu-overlay" class="menu-overlay">
+  <div class="menu-modal">
+    <h1 class="menu-title">Metropolica</h1>
+    <p class="menu-subtitle">Simulación Urbana</p>
+    
+    <div class="menu-buttons">
+      <button id="btn-menu-continue" class="menu-btn primary" disabled>Continuar</button>
+      <button id="btn-menu-load" class="menu-btn" disabled>Cargar partida</button>
+      <button id="btn-menu-save" class="menu-btn">Guardar partida</button>
+      <button id="btn-menu-random" class="menu-btn">Nueva ciudad aleatoria</button>
+      <button id="btn-menu-zero" class="menu-btn danger">Empezar de cero</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.menu-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(10, 10, 20, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  transition: opacity 0.3s;
+}
+.menu-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.menu-modal {
+  background: rgba(30, 30, 45, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 40px;
+  width: 400px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.menu-title {
+  font-size: 2.5rem;
+  margin: 0 0 10px 0;
+  color: #fff;
+  letter-spacing: 2px;
+}
+.menu-subtitle {
+  color: #aaa;
+  margin-bottom: 30px;
+}
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.menu-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ddd;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.2s;
+}
+.menu-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+.menu-btn.primary {
+  background: #2a5a8c;
+  border-color: #3b7bbd;
+  color: #fff;
+}
+.menu-btn.primary:hover:not(:disabled) {
+  background: #3b7bbd;
+}
+.menu-btn.danger {
+  background: rgba(180, 50, 50, 0.2);
+}
+.menu-btn.danger:hover:not(:disabled) {
+  background: rgba(180, 50, 50, 0.4);
+}
+.menu-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+</style>

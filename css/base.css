@@ -1,0 +1,57 @@
+/* ── Reset & base ── */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:          #070d18;
+  --surface:     rgba(10,16,32,0.92);
+  --surface-2:   rgba(18,28,50,0.95);
+  --border:      rgba(255,255,255,0.07);
+  --border-hi:   rgba(255,255,255,0.14);
+  --text-main:   #e2e8f0;
+  --text-muted:  #64748b;
+  --text-dim:    #334155;
+  --green:       #22c55e;
+  --blue:        #3b82f6;
+  --indigo:      #818cf8;
+  --red:         #ef4444;
+  --orange:      #f97316;
+  --yellow:      #eab308;
+  --cyan:        #06b6d4;
+  --font:        'Inter', system-ui, sans-serif;
+  --mono:        'JetBrains Mono', monospace;
+  --toolbar-w:   152px;
+  --top-h:       44px;
+  --bottom-h:    320px;
+  --radius:      8px;
+  --radius-sm:   5px;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--font);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Game root ── */
+
+#game-root {
+  position: relative;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Canvas ── */
+
+#city-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+

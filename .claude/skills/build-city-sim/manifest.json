@@ -1,0 +1,11 @@
+{
+  "skill": "build-city-sim",
+  "files": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "assets/game-brief-template.md",
+    "references/architecture.md",
+    "references/game-design.md",
+    "references/qa-checklist.md"
+  ]
+}

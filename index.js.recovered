@@ -1,0 +1,59 @@
+Created At: 2026-07-19T17:55:59Z
+Completed At: 2026-07-19T17:55:59Z
+File Path: `file:///home/netss/Projects/Metropolica/js/bundle.js`
+Total Lines: 1531
+Total Bytes: 53877
+Showing lines 450 to 500
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+450: function renderFrame(timestamp) {
+451:   const dt = Math.min((timestamp - lastFrameTs) / 1000, 0.12);
+452:   lastFrameTs = timestamp;
+453:   gameTime += dt;
+454: 
+455:   updatePedestrians(dt);
+456: 
+457:   const cw = gameCanvas.width;
+458:   const ch = gameCanvas.height;
+459:   const ts = TILE_SIZE;
+460: 
+461:   // Clear
+462:   gameCtx.setTransform(1, 0, 0, 1, 0, 0);
+463:   gameCtx.fillStyle = '#070d18';
+464:   gameCtx.fillRect(0, 0, cw, ch);
+465: 
+466:   // Apply camera transform (world-space drawing)
+467:   gameCtx.setTransform(cam.zoom, 0, 0, cam.zoom, -cam.x * cam.zoom, -cam.y * cam.zoom);
+468: 
+469:   // Visible tile range (with 1-tile padding)
+470:   const visW  = cw  / cam.zoom;
+471:   const visH  = ch  / cam.zoom;
+472:   const startC = Math.max(0, Math.floor(cam.x / ts) - 1);
+473:   const endC   = Math.min(MAP_COLS - 1, Math.ceil((cam.x + visW) / ts) + 1);
+474:   const startR = Math.max(0, Math.floor(cam.y / ts) - 1);
+475:   const endR   = Math.min(MAP_ROWS - 1, Math.ceil((cam.y + visH) / ts) + 1);
+476: 
+477:   
+478: // ── INPUT HANDLERS ──
+479: 
+480: 
+481: function initInputHandlers() {
+482:   const cv = gameCanvas;
+483: 
+484:   cv.addEventListener('mousedown', e => {
+485:     if (e.button === 0 || e.button === 1 || e.button === 2) {
+486:       isDragging   = true;
+487:       dragMoved    = false;
+488:       dragStart    = { x: e.clientX, y: e.clientY };
+489:       dragCamStart = { x: cam.x, y: cam.y };
+490:       cv.style.cursor = 'grabbing';
+491:     }
+492:   });
+493: 
+494:   cv.addEventListener('mousemove', e => {
+495:     if (isDragging) {
+496:       const dx = (e.clientX - dragStart.x) / cam.zoom;
+497:       const dy = (e.clientY - dragStart.y) / cam.zoom;
+498:       if (Math.abs(e.clientX - dragStart.x) + Math.abs(e.clientY - dragStart.y) > 3) dragMoved = true;
+499:       cam.x = dragCamStart.x - dx;
+500:       cam.y = dragCamStart.y - dy;
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
