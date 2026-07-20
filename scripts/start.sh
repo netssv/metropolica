@@ -32,9 +32,50 @@ cd "$ROOT_DIR"
 : > "$FRONTEND_LOG"
 
 command -v node >/dev/null || { record_failure "Node.js is not installed or is not on PATH"; exit 1; }
-[[ -x "$ROOT_DIR/frontend/node_modules/.bin/next" ]] || {
-  record_failure "Frontend dependencies are missing; run npm install in frontend/"; exit 1;
+command -v npm >/dev/null || { record_failure "npm is not installed or is not on PATH"; exit 1; }
+
+ensure_frontend_dependencies() {
+  if [[ -x "$ROOT_DIR/frontend/node_modules/.bin/next" ]]; then
+    return
+  fi
+
+  printf 'Frontend dependencies are missing; installing them...\n'
+  local install_command
+  if [[ -f "$ROOT_DIR/frontend/package-lock.json" ]]; then
+    install_command=(npm ci --prefer-offline --no-audit --no-fund)
+  elif [[ -f "$ROOT_DIR/frontend/package.json" ]]; then
+    install_command=(npm install --prefer-offline --no-audit --no-fund)
+  else
+    record_failure "Frontend dependency manifest not found"
+    return 1
+  fi
+
+  local installed=0 attempt
+  for attempt in 1 2 3; do
+    if (cd "$ROOT_DIR/frontend" && "${install_command[@]}" ); then
+      installed=1
+      break
+    fi
+    if (( attempt < 3 )); then
+      printf 'Dependency installation failed; retrying (%d/3)...\n' "$((attempt + 1))" >&2
+      sleep 2
+    fi
+  done
+
+  if (( ! installed )); then
+    record_failure "Unable to install frontend dependencies; npm could not reach the package registry. Check network/proxy settings and retry"
+    return 1
+  fi
+
+  [[ -x "$ROOT_DIR/frontend/node_modules/.bin/next" ]] || {
+    record_failure "Frontend dependency installation completed without installing Next.js"
+    return 1
+  }
 }
+
+if ! ensure_frontend_dependencies; then
+  exit 1
+fi
 
 if (exec 3<>"/dev/tcp/127.0.0.1/3000") 2>/dev/null; then
   exec 3>&-; record_failure "Port 3000 is already in use"; exit 1

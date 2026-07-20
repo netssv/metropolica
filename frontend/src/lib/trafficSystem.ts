@@ -2,7 +2,7 @@ import { gridToIso, ISO_TILE_H, ISO_TILE_W } from './isoMath';
 
 type Tile = { type?: string } | null;
 type Node = { col: number; row: number };
-type Car = { col: number; row: number; next: Node; previous?: Node; progress: number; speed: number };
+type Car = { col: number; row: number; next: Node; previous?: Node; progress: number; speed: number; route: Node[]; routeIndex: number };
 export type RoadGraph = Map<string, Node[]>;
 
 const MAX_CARS = 8;
@@ -11,7 +11,7 @@ const DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 function key(col: number, row: number) { return `${col},${row}`; }
 function roadSignature(map: Tile[][]) {
-  return map.map(row => row.map(tile => ROAD_TYPES.has(tile?.type ?? '') ? tile.type : '').join(',')).join(';');
+  return map.map(row => row.map(tile => ROAD_TYPES.has(tile?.type ?? '') ? (tile?.type ?? '') : '').join(',')).join(';');
 }
 
 export function buildRoadGraph(map: Tile[][]): RoadGraph {
@@ -50,11 +50,23 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
   console.log('%c[TRAFFIC SYSTEM INIT]', 'background: blue; color: white; font-size: 20px');
   let graph = new Map<string, Node[]>();
   let graphSignature = '';
-  let cars: Car[] = [];
+    let cars: Car[] = [];
+  let destinations: Node[] = [];
   let lastTime = 0;
   let frameCount = 0;
   let lastSnapshotFrame = 0;
   const positions = new Map<string, { cx: number; cy: number; from: string; to: string }>();
+
+  const routeToBuilding = (start: Node) => {
+    const candidates = destinations
+      .filter(destination => key(destination.col, destination.row) !== key(start.col, start.row))
+      .sort(() => Math.random() - 0.5);
+    for (const destination of candidates) {
+      const route = findRoadRoute(graph, start, destination);
+      if (route.length > 1) return route;
+    }
+    return [start, ...(graph.get(key(start.col, start.row)) ?? [])].slice(0, 2);
+  };
 
   const rebuild = (map: Tile[][]) => {
     const previousCars = cars;
@@ -62,6 +74,14 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
     const nodes = [...graph.keys()].map(item => { const [col, row] = item.split(',').map(Number); return { col, row }; });
     graphSignature = roadSignature(map);
     const usable = nodes.filter(n => graph.has(key(n.col, n.row)));
+    destinations = [];
+    for (let row = 0; row < map.length; row++) for (let col = 0; col < (map[row]?.length ?? 0); col++) {
+      if (!map[row]?.[col]?.type?.startsWith('bldg-')) continue;
+      const road = DIRECTIONS.map(([dc, dr]) => ({ col: col + dc, row: row + dr }))
+        .find(candidate => graph.has(key(candidate.col, candidate.row)));
+      if (road) destinations.push(road);
+    }
+    if (!destinations.length) destinations = usable;
     // The initial camera is centered on the map. Prefer connected road nodes
     // near that center so the first car pool is visible immediately instead
     // of deterministically spawning all cars at map-edge roads.
@@ -84,7 +104,8 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
     const freshCars = Array.from({ length: Math.min(MAX_CARS, usable.length) }, (_, index) => {
       const start = starts[index];
       const options = graph.get(key(start.col, start.row))!;
-      return { col: start.col, row: start.row, next: options[index % options.length], progress: 0, speed: 1.3 + (index % 3) * 0.22 };
+      const route = routeToBuilding(start);
+      return { col: start.col, row: start.row, next: route[1] ?? options[index % options.length], progress: 0, speed: 1.3 + (index % 3) * 0.22, route, routeIndex: 1 };
     });
     // Editing a tile rebuilds the road graph, but must not restart animation.
     // Keep cars on still-valid segments, including their current progress and
@@ -92,7 +113,7 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
     cars = freshCars.map((replacement, index) => {
       const current = previousCars[index];
       if (current && graph.has(key(current.col, current.row)) && graph.has(key(current.next.col, current.next.row)) &&
-          (graph.get(key(current.col, current.row)) ?? []).some(node => key(node.col, node.row) === key(current.next))) {
+          (graph.get(key(current.col, current.row)) ?? []).some(node => key(node.col, node.row) === key(current.next.col, current.next.row))) {
         return { ...current };
       }
       return replacement;
@@ -158,17 +179,26 @@ export function createTrafficSystem(tileMapRef: { current: Tile[][] }) {
           car.progress -= 1;
           car.previous = { col: car.col, row: car.row };
           car.col = car.next.col; car.row = car.next.row;
-          const options = (graph.get(key(car.col, car.row)) ?? []).filter(n => !car.previous || key(n.col, n.row) !== key(car.previous.col, car.previous.row));
-          const fallback = graph.get(key(car.col, car.row)) ?? [];
-          const choices = options.length ? options : fallback;
-          if (!choices.length) {
+          if (car.routeIndex < car.route.length - 1) {
+            car.routeIndex += 1;
+            car.next = car.route[car.routeIndex];
+            continue;
+          }
+          const nextRoute = routeToBuilding({ col: car.col, row: car.row });
+          if (nextRoute.length < 2) {
             car.progress = 0;
             const replacement = [...graph.keys()][Math.floor(Math.random() * graph.size)];
             if (!replacement) continue;
             const [col, row] = replacement.split(',').map(Number);
             car.col = col; car.row = row;
-            car.next = graph.get(replacement)![0];
-          } else car.next = choices[Math.floor(Math.random() * choices.length)];
+            car.route = routeToBuilding({ col, row });
+            car.routeIndex = 1;
+            car.next = car.route[1] ?? graph.get(replacement)![0];
+          } else {
+            car.route = nextRoute;
+            car.routeIndex = 1;
+            car.next = car.route[1];
+          }
         }
         console.log('[traffic] draw car', { col: car.col, row: car.row, next: car.next, progress: car.progress, speed: car.speed });
         drawCar(ctx, car, ox, oy, zoom);

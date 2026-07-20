@@ -15,7 +15,16 @@ import type { HouseholdTickOutput } from "../households/index.ts";
 import { generateInitialMap } from "./map.ts";
 
 export type ScenarioResult = { status: "running" | "won" | "lost"; reason?: string; tick: number };
+export type CitySize = "tiny" | "small" | "big" | "very-big" | "enormous";
+export const CITY_SIZES: Record<CitySize, { cols: number; rows: number; label: string }> = {
+  tiny: { cols: 24, rows: 18, label: "Tiny" },
+  small: { cols: 48, rows: 36, label: "Small" },
+  big: { cols: 96, rows: 72, label: "Big" },
+  "very-big": { cols: 128, rows: 96, label: "Very big" },
+  enormous: { cols: 160, rows: 120, label: "Enormous" },
+};
 export class ScenarioRunner {
+  readonly citySize: CitySize;
   city: CityState;
   cohorts: Record<string, HouseholdCohort[]>;
   readonly clock: SimulationClock;
@@ -28,9 +37,11 @@ export class ScenarioRunner {
   result: ScenarioResult = { status: "running", tick: 0 };
   private readonly content: CiudadDivididaContent;
   private readonly streaks = { treasury: 0, approval: 0 };
-  constructor(content: CiudadDivididaContent, millisecondsPerDay = 3_600_000, seed = 1) {
+  constructor(content: CiudadDivididaContent, millisecondsPerDay = 3_600_000, seed = 1, citySize: CitySize = "big") {
+    this.citySize = citySize;
     this.content = content; this.city = { ...content.startingCity, districts: content.districts.map(item => structuredClone(item.district)), organizations: [] };
-    const initialTiles = generateInitialMap(seed);
+    const dimensions = CITY_SIZES[citySize];
+    const initialTiles = generateInitialMap(seed, dimensions.cols, dimensions.rows);
     this.city.districts.forEach(d => { d.tiles = initialTiles[d.id] || []; });
     this.cohorts = Object.fromEntries(content.districts.map(item => [item.district.id, structuredClone(item.households)]));
     const pool = JSON.parse(readFileSync(new URL("../../../content/citizens/sample_pool.json", import.meta.url), "utf8")) as CitizenPoolProfile[];

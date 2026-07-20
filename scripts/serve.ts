@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { ScenarioRunner } from "../src/simulation/scenario/index.ts";
 import { ciudadDividida } from "../src/content/scenarios/ciudad_dividida.ts";
 import { activeCitizenCount } from "../src/simulation/citizens/index.ts";
+import { CITY_SIZES, type CitySize } from "../src/simulation/scenario/index.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -61,7 +62,9 @@ async function handleRequest(req: any, res: any) {
       })),
       totalCitizens,
       activeCitizens: activeCitizenCount(game.citizens)
-      ,citizens: game.citizens
+      ,citizens: game.citizens,
+      citySize: game.citySize,
+      cityDimensions: CITY_SIZES[game.citySize]
     };
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(state));
@@ -179,6 +182,11 @@ async function handleRequest(req: any, res: any) {
         if (body) {
           const parsed = JSON.parse(body);
           if (parsed.seed) seed = parsed.seed;
+          const citySize = (parsed.citySize in CITY_SIZES ? parsed.citySize : "big") as CitySize;
+          game = new ScenarioRunner(ciudadDividida, 10, seed, citySize);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, citySize }));
+          return;
         }
         game = new ScenarioRunner(ciudadDividida, 10, seed);
         res.writeHead(200, { "Content-Type": "application/json" });

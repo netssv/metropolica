@@ -21,7 +21,7 @@ export default function HUD() {
 
   return (
     <header id="hud-top">
-      <div id="city-brand">🏙️ <span>Metropolica</span></div>
+      <button id="city-brand" onClick={() => setIsMenuOpen(true)} title="Abrir menú principal" aria-label="Abrir menú principal">🏙️ <span>Metropolica</span></button>
       <div className="hud-sep"></div>
       <button className="hud-stat hud-stat-button" onClick={() => openDashboard('districts')} title="Abrir reloj y controles de tiempo">
         <span className="hud-label">HORA</span>

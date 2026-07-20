@@ -1,13 +1,11 @@
 ▲ Next.js 16.2.10 (Turbopack)
 - Local:         http://localhost:3001
 - Network:       http://192.168.68.55:3001
-✓ Ready in 630ms
+✓ Ready in 2.7s
 
 [HOME RENDER]
- GET / 200 in 818ms (next.js: 223ms, application-code: 595ms)
+ GET / 200 in 2.3s (next.js: 833ms, application-code: 1471ms)
 [HOME RENDER]
- GET / 200 in 191ms (next.js: 60ms, application-code: 131ms)
-✓ Compiled in 75ms
-✓ Compiled in 63ms
-✓ Compiled in 69ms
-[?25h
+[HOME RENDER]
+ GET / 200 in 857ms (next.js: 28ms, application-code: 829ms)
+ GET / 200 in 688ms (next.js: 101ms, application-code: 588ms)

@@ -1,18 +1,15 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useGameContext } from '../hooks/GameContext';
-import { MAP_COLS, MAP_ROWS, T, toolColor, TOOL_COSTS } from '../lib/constants';
+import { T, toolColor, TOOL_COSTS } from '../lib/constants';
 import { ISO_TILE_W, ISO_TILE_H, gridToIso, isoToGrid } from '../lib/isoMath';
 import { ensureSpritesLoaded, drawIsoTile, drawIsoHover } from '../lib/isoRenderer';
 import { createTrafficSystem } from '../lib/trafficSystem';
 import { createCitizenTransit } from '../lib/citizenTransit';
 
 /** Total isometric canvas extent for initial camera centering */
-const ISO_MAP_W = (MAP_COLS + MAP_ROWS) * (ISO_TILE_W / 2);
-const ISO_MAP_H = (MAP_COLS + MAP_ROWS) * (ISO_TILE_H / 2);
-
 export default function CanvasMap() {
-  const { tileMapRef, currentTool, setCurrentTool, fetchState, simState } = useGameContext();
+  const { tileMapRef, currentTool, setCurrentTool, fetchState, simState, mapCols, mapRows } = useGameContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const miniMapRef = useRef<HTMLCanvasElement>(null);
   const miniDraggingRef = useRef(false);
@@ -47,11 +44,11 @@ export default function CanvasMap() {
       canvas.width  = window.innerWidth;
       canvas.height = window.innerHeight;
       // Centre on the isometric world-space midpoint of the grid.
-      // gridToIso(MAP_COLS/2, MAP_ROWS/2) gives the screen-space origin of the
+      // gridToIso(mapCols/2, mapRows/2) gives the screen-space origin of the
       // center tile BEFORE zoom/offset; we subtract that from canvas-center.
       const z = cameraRef.current.zoom;
-      cameraRef.current.ox = canvas.width  / 2 - (MAP_COLS / 2 - MAP_ROWS / 2) * (ISO_TILE_W / 2) * z;
-      cameraRef.current.oy = canvas.height / 2 - (MAP_COLS / 2 + MAP_ROWS / 2) * (ISO_TILE_H / 2) * z;
+      cameraRef.current.ox = canvas.width  / 2 - (mapCols / 2 - mapRows / 2) * (ISO_TILE_W / 2) * z;
+      cameraRef.current.oy = canvas.height / 2 - (mapCols / 2 + mapRows / 2) * (ISO_TILE_H / 2) * z;
     };
     window.addEventListener('resize', resize);
     resize();
@@ -73,10 +70,10 @@ export default function CanvasMap() {
 
       // Depth-sort: draw back-to-front (painter's algorithm for isometric)
       // In isometric, tiles with lower (col+row) are drawn first (farther away)
-      for (let sum = 0; sum <= MAP_COLS + MAP_ROWS - 2; sum++) {
-        for (let row = Math.max(0, sum - MAP_COLS + 1); row <= Math.min(sum, MAP_ROWS - 1); row++) {
+      for (let sum = 0; sum <= mapCols + mapRows - 2; sum++) {
+        for (let row = Math.max(0, sum - mapCols + 1); row <= Math.min(sum, mapRows - 1); row++) {
           const col = sum - row;
-          if (col < 0 || col >= MAP_COLS) continue;
+          if (col < 0 || col >= mapCols) continue;
           const tile = map[row]?.[col];
           if (!tile) continue;
           
@@ -94,7 +91,7 @@ export default function CanvasMap() {
       if (mini) {
         const miniCtx = mini.getContext('2d');
         if (miniCtx) {
-          const sx = mini.width / MAP_COLS, sy = mini.height / MAP_ROWS;
+          const sx = mini.width / mapCols, sy = mini.height / mapRows;
           miniCtx.fillStyle = '#10251d'; miniCtx.fillRect(0, 0, mini.width, mini.height);
           for (let r = 0; r < map.length; r++) for (let c = 0; c < (map[r]?.length ?? 0); c++) {
             const type = map[r]?.[c]?.type;
@@ -113,7 +110,7 @@ export default function CanvasMap() {
       }
 
       // Hover highlight
-      if (hoverCol >= 0 && hoverCol < MAP_COLS && hoverRow >= 0 && hoverRow < MAP_ROWS && currentToolRef.current !== 'cursor') {
+      if (hoverCol >= 0 && hoverCol < mapCols && hoverRow >= 0 && hoverRow < mapRows && currentToolRef.current !== 'cursor') {
         drawIsoHover(ctx, hoverCol, hoverRow, ox, oy, zoom, toolColor(currentToolRef.current));
       }
     };
@@ -160,7 +157,7 @@ export default function CanvasMap() {
       }
       const { ix, iy } = screenToIsoWorld(e.clientX, e.clientY);
       const { col, row } = isoToGrid(ix, iy);
-      if (col < 0 || col >= MAP_COLS || row < 0 || row >= MAP_ROWS) return;
+      if (col < 0 || col >= mapCols || row < 0 || row >= mapRows) return;
 
       const tile = tileMapRef.current[row]?.[col];
       if (!tile) return;
@@ -193,8 +190,8 @@ export default function CanvasMap() {
     const centerOnMiniPoint = (e: PointerEvent) => {
       const rect = miniMapRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const col = ((e.clientX - rect.left) / rect.width) * MAP_COLS;
-      const row = ((e.clientY - rect.top) / rect.height) * MAP_ROWS;
+      const col = ((e.clientX - rect.left) / rect.width) * mapCols;
+      const row = ((e.clientY - rect.top) / rect.height) * mapRows;
       const iso = gridToIso(col, row);
       cameraRef.current.ox = canvas.width / 2 - (iso.x + ISO_TILE_W / 2) * cameraRef.current.zoom;
       cameraRef.current.oy = canvas.height / 2 - (iso.y + ISO_TILE_H / 2) * cameraRef.current.zoom;
@@ -224,7 +221,7 @@ export default function CanvasMap() {
       canvas.removeEventListener('wheel', onWheel);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [tileMapRef]);
+  }, [tileMapRef, mapCols, mapRows]);
 
   return <>
     <canvas ref={canvasRef} id="city-canvas" tabIndex={0} />
@@ -238,8 +235,8 @@ export default function CanvasMap() {
         <span>MINIMAP · clic/arrastre</span><button onPointerDown={e => e.stopPropagation()} onClick={() => setMiniVisible(false)}>Ocultar</button>
       </div>
       <canvas ref={miniMapRef} width={288} height={216}
-      onPointerDown={e => { miniDraggingRef.current = true; e.currentTarget.setPointerCapture(e.pointerId); const rect = e.currentTarget.getBoundingClientRect(); const iso = gridToIso(((e.clientX - rect.left) / rect.width) * MAP_COLS, ((e.clientY - rect.top) / rect.height) * MAP_ROWS); cameraRef.current.ox = window.innerWidth / 2 - (iso.x + ISO_TILE_W / 2) * cameraRef.current.zoom; cameraRef.current.oy = window.innerHeight / 2 - (iso.y + ISO_TILE_H / 2) * cameraRef.current.zoom; }}
-      onPointerMove={e => { if (!miniDraggingRef.current) return; const rect = e.currentTarget.getBoundingClientRect(); const iso = gridToIso(((e.clientX - rect.left) / rect.width) * MAP_COLS, ((e.clientY - rect.top) / rect.height) * MAP_ROWS); cameraRef.current.ox = window.innerWidth / 2 - (iso.x + ISO_TILE_W / 2) * cameraRef.current.zoom; cameraRef.current.oy = window.innerHeight / 2 - (iso.y + ISO_TILE_H / 2) * cameraRef.current.zoom; }}
+      onPointerDown={e => { miniDraggingRef.current = true; e.currentTarget.setPointerCapture(e.pointerId); const rect = e.currentTarget.getBoundingClientRect(); const iso = gridToIso(((e.clientX - rect.left) / rect.width) * mapCols, ((e.clientY - rect.top) / rect.height) * mapRows); cameraRef.current.ox = window.innerWidth / 2 - (iso.x + ISO_TILE_W / 2) * cameraRef.current.zoom; cameraRef.current.oy = window.innerHeight / 2 - (iso.y + ISO_TILE_H / 2) * cameraRef.current.zoom; }}
+      onPointerMove={e => { if (!miniDraggingRef.current) return; const rect = e.currentTarget.getBoundingClientRect(); const iso = gridToIso(((e.clientX - rect.left) / rect.width) * mapCols, ((e.clientY - rect.top) / rect.height) * mapRows); cameraRef.current.ox = window.innerWidth / 2 - (iso.x + ISO_TILE_W / 2) * cameraRef.current.zoom; cameraRef.current.oy = window.innerHeight / 2 - (iso.y + ISO_TILE_H / 2) * cameraRef.current.zoom; }}
       onPointerUp={() => { miniDraggingRef.current = false; }} onPointerCancel={() => { miniDraggingRef.current = false; }} /></div>}
     {selectedEntity && <div className="citizen-inspector">
       <button onClick={() => setSelectedEntity(null)} aria-label="Cerrar">×</button>
