@@ -1,0 +1,171 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { useGameContext } from '../hooks/GameContext';
+import { t } from '../lib/labels';
+
+
+function DistrictsTab({ districts }: { districts: any[] }) {
+  if (!districts?.length) return <div className="empty-state">Sin datos de distrito</div>;
+  return (
+    <div className="city-grid">
+      {districts.map((d: any) => (
+        <div key={d.id} className="district-card">
+          <div className="dc-header">
+            <span className="dc-name">{t(d.id)}</span>
+            <span className="dc-pop">{d.population} hab.</span>
+          </div>
+          <div className="dc-approval">
+            <span>Aprobación</span>
+            <div className="progress-bar"><div className="progress-value" style={{ width: `${(d.approval ?? 0) * 100}%` }} /></div>
+            <span>{((d.approval ?? 0) * 100).toFixed(0)}%</span>
+          </div>
+          {d.services && (
+            <div className="dc-services">
+              {Object.entries(d.services).map(([k, v]: any) => (
+                <div key={k} className="svc-row">
+                  <span>{t(k)}</span>
+                  <div className="progress-bar sm"><div className="progress-value green" style={{ width: `${Math.round(v * 100)}%` }} /></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OpinionTab({ opinionBreakdown }: { opinionBreakdown: any[] }) {
+  if (!opinionBreakdown?.length) return <div className="empty-state">Sin datos de opinión todavía</div>;
+  const latest = opinionBreakdown[0];
+  const channels = [
+    { key: 'socialMedia', label: 'Redes Sociales', cls: 'social' },
+    { key: 'newspapers', label: 'Prensa', cls: 'news' },
+    { key: 'wordOfMouth', label: 'Boca a Boca', cls: 'wom' },
+    { key: 'pressConference', label: 'Conf. Prensa', cls: 'press' },
+  ];
+  const maxAbs = Math.max(...channels.map(c => Math.abs(latest[c.key] ?? 0)), 0.01);
+  return (
+    <div className="opinion-breakdown">
+      <div className="opinion-tick-label">Día {latest.day}</div>
+      <div className="opinion-channels">
+        {channels.map(ch => {
+          const val = latest[ch.key] ?? 0;
+          const pct = (Math.abs(val) / maxAbs) * 100;
+          return (
+            <div key={ch.key} className="ch-row">
+              <span className="ch-label">{ch.label}</span>
+              <div className="ch-bar-container">
+                <div className={`ch-bar-fill ${ch.cls}`} style={{ width: `${pct}%` }} />
+              </div>
+              <span className={`ch-val ${val >= 0 ? 'pos' : 'neg'}`}>{val >= 0 ? '+' : ''}{(val * 100).toFixed(1)}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CitizensTab({ simState }: { simState: any }) {
+  const { fetchState } = useGameContext();
+  const total = simState?.totalCitizens ?? 0;
+  const active = simState?.activeCitizens ?? 0;
+  const citizens = Object.values(simState?.citizens ?? {}).flat() as any[];
+  async function toggleCitizen(id: string) {
+    console.log('[activar] clicked', id);
+    try {
+      console.log('[activar] request start', { id, endpoint: '/api/inspect' });
+      const response = await fetch('/api/inspect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ citizenId: id }) });
+      const body = await response.text();
+      console.log('[activar] response', { status: response.status, ok: response.ok, body });
+      if (!response.ok) throw new Error(`Activation request failed: ${response.status}`);
+      console.log('[activar] state refresh start');
+      await fetchState();
+      console.log('[activar] state refresh complete');
+    } catch (error) {
+      console.error('[activar] failed', error);
+    }
+  }
+  return (
+    <div className="citizens-summary">
+      <div className="cit-stat"><span>Total ciudadanos</span><strong>{total}</strong></div>
+      <div className="cit-stat"><span>Ciudadanos activos</span><strong>{active}</strong></div>
+      <div className="cit-section-title">Seguimiento individual</div>
+      <div className="citizen-track-list">
+        {citizens.slice(0, 12).map(citizen => <div className="citizen-track-row" key={citizen.id}>
+          <span><strong>{citizen.id}</strong><small>{citizen.occupation}</small></span>
+          <button onClick={() => toggleCitizen(citizen.id)}>{citizen.level === 3 ? 'Desactivar' : 'Activar'}</button>
+        </div>)}
+      </div>
+      {simState?.organizations?.length > 0 && (
+        <>
+          <div className="cit-section-title">Organizaciones</div>
+          {simState.organizations.map((o: any) => (
+            <div key={o.id} className="org-row">
+              <span>{o.name ?? o.id}</span>
+              <span className="org-type">{t(o.type)}</span>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const { simState } = useGameContext();
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'districts' | 'opinion' | 'citizens'>('districts');
+
+  useEffect(() => {
+    const navigate = (event: Event) => {
+      const requested = (event as CustomEvent<'districts' | 'opinion' | 'citizens'>).detail;
+      if (open && tab === requested) {
+        setOpen(false);
+        return;
+      }
+      setTab(requested);
+      setOpen(true);
+    };
+    window.addEventListener('dashboard:navigate', navigate);
+    return () => window.removeEventListener('dashboard:navigate', navigate);
+  }, [open, tab]);
+
+  return (
+    <div id="hud-bottom" className={open ? '' : 'collapsed'}>
+      <button id="hud-bottom-toggle" onClick={() => setOpen(o => !o)}>
+        <span id="toggle-arrow">▲</span>
+        <span>PANEL DE CIUDAD</span>
+        <span id="dash-quick">
+          <span className="qs-dot">•</span>
+          Día {simState?.day ?? 0}
+          <span className="qs-dot">•</span>
+          ${(simState?.treasury ?? 0).toLocaleString()}
+          <span className="qs-dot">•</span>
+          Aprob. {((simState?.approval ?? 0) * 100).toFixed(0)}%
+        </span>
+      </button>
+      <div id="hud-bottom-content">
+        <div id="dash-tabs">
+          {(['districts', 'opinion', 'citizens'] as const).map(t => (
+            <button key={t} className={`dash-tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
+              {t === 'districts' ? 'DISTRITOS' : t === 'opinion' ? 'OPINIÓN' : 'CIUDADANOS'}
+            </button>
+          ))}
+        </div>
+        <div id="dash-content">
+          <div className={`dash-pane ${tab === 'districts' ? 'active' : ''}`}>
+            <DistrictsTab districts={simState?.districts ?? []} />
+          </div>
+          <div className={`dash-pane ${tab === 'opinion' ? 'active' : ''}`}>
+            <OpinionTab opinionBreakdown={simState?.opinionBreakdown ?? []} />
+          </div>
+          <div className={`dash-pane ${tab === 'citizens' ? 'active' : ''}`}>
+            <CitizensTab simState={simState} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

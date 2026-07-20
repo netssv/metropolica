@@ -1,0 +1,49 @@
+/* ── Dashboard extra styles for React port ── */
+
+.dc-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.dc-name { font-weight: 700; font-size: 0.8rem; text-transform: capitalize; }
+.dc-pop  { font-size: 0.68rem; color: var(--text-muted); }
+.dc-approval {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.65rem; color: var(--text-muted); margin-bottom: 6px;
+}
+.dc-services { display: flex; flex-direction: column; gap: 3px; }
+.svc-row { display: flex; align-items: center; gap: 6px; font-size: 0.6rem; color: var(--text-muted); }
+
+.progress-bar {
+  flex: 1; height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden;
+}
+.progress-bar.sm { height: 3px; }
+.progress-value { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s; }
+.progress-value.green { background: var(--green); }
+.progress-value.water { background: var(--teal); }
+.progress-value.education { background: var(--accent); }
+
+/* Opinion */
+.opinion-breakdown { padding: 4px 0; }
+.opinion-tick-label { font-size: 0.65rem; color: var(--text-muted); margin-bottom: 10px; }
+.opinion-channels { display: flex; flex-direction: column; gap: 8px; }
+.ch-row { display: flex; align-items: center; gap: 8px; }
+.ch-label { font-size: 0.65rem; color: var(--text-muted); width: 100px; flex-shrink: 0; }
+.ch-bar-container { flex: 1; height: 6px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; }
+.ch-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.ch-bar-fill.social { background: var(--teal); }
+.ch-bar-fill.news   { background: var(--accent); }
+.ch-bar-fill.wom    { background: var(--green); }
+.ch-bar-fill.press  { background: var(--yellow); }
+.ch-val { font-size: 0.62rem; font-family: var(--mono); width: 52px; text-align: right; flex-shrink: 0; }
+.ch-val.pos { color: var(--green); }
+.ch-val.neg { color: var(--red); }
+
+/* Citizens */
+.citizens-summary { padding: 4px 0; }
+.cit-stat { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 0.72rem; }
+.cit-stat strong { color: var(--accent-hi); font-family: var(--mono); }
+.cit-section-title { font-size: 0.6rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.08em; margin-top: 12px; margin-bottom: 4px; }
+.org-row { display: flex; justify-content: space-between; font-size: 0.68rem; padding: 3px 0; }
+.org-type { font-size: 0.6rem; color: var(--accent); }
+
+.empty-state { font-size: 0.72rem; color: var(--text-dim); padding: 12px 0; }

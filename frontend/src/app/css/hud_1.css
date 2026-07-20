@@ -1,0 +1,191 @@
+/* ── HUD layer ── */
+
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+#hud > * { pointer-events: auto; }
+
+/* ── Top status bar ── */
+
+#hud-top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: var(--top-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  pointer-events: auto;
+  z-index: 30;
+}
+
+#city-brand {
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  color: var(--text-main);
+  white-space: nowrap;
+  display: flex; align-items: center; gap: 5px;
+}
+#city-brand span { color: var(--accent); }
+
+.hud-sep {
+  width: 1px; height: 22px;
+  background: var(--border-hi);
+  flex-shrink: 0;
+}
+
+.hud-stat {
+  display: flex; flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 60px;
+}
+.hud-stat-button {
+  border: 0;
+  padding: 2px 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.hud-stat-button:hover { background: var(--panel-hi); }
+.hud-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+.hud-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+  font-family: var(--mono);
+}
+.accent-green { color: var(--green); }
+
+.hud-top-actions {
+  display: flex; align-items: center; gap: 4px;
+  margin-left: auto;
+}
+.hud-icon-btn {
+  padding: 4px 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: var(--mono);
+}
+.hud-icon-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+/* ── Left toolbar ── */
+
+#hud-toolbar {
+  position: absolute;
+  top: var(--top-h);
+  left: 0;
+  width: var(--toolbar-w);
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 8px;
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: auto;
+  z-index: 25;
+}
+#hud-toolbar::-webkit-scrollbar { width: 3px; }
+#hud-toolbar::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+.tool-section { display: flex; flex-direction: column; gap: 2px; }
+.tool-sec-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  padding: 6px 6px 2px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.tool-section:first-child .tool-sec-label { border-top: none; margin-top: 0; }
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+  position: relative;
+}
+.tool-btn:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-main);
+  border-color: var(--border);
+}
+.tool-btn.active {
+  background: var(--accent-glow);
+  border-color: rgba(212,130,42,0.45);
+  color: var(--accent-hi);
+}
+.tool-btn.tool-danger { color: var(--text-muted); }
+.tool-btn.tool-danger:hover  { background: rgba(239,68,68,0.1);  border-color: rgba(239,68,68,0.3); color: #fca5a5; }
+.tool-btn.tool-danger.active { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.5); color: var(--red); }
+
+.tool-ico  { font-size: 1rem; line-height: 1; flex-shrink: 0; }
+.tool-name { font-size: 0.72rem; font-weight: 600; flex: 1; }
+.tool-cost {
+  font-size: 0.6rem;
+  font-family: var(--mono);
+  color: var(--yellow);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.toolbar-hint {
+  margin-top: auto;
+  padding: 8px 6px;
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Zoom controls ── */
+
+#hud-zoom {
+  position: absolute;
+  right: 14px;
+  top: calc(var(--top-h) + 14px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: auto;
+  z-index: 25;
+}

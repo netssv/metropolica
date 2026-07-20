@@ -1,0 +1,72 @@
+/* ── Reset & base ── */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:          #080c0a;
+  --surface:     rgba(10,14,11,0.94);
+  --surface-2:   rgba(15,20,14,0.97);
+  --border:      rgba(255,255,255,0.07);
+  --border-hi:   rgba(255,255,255,0.13);
+  --text-main:   #e8e2d4;
+  --text-muted:  #7a7060;
+  --text-dim:    #3a352a;
+  --green:       #4cbb7a;
+  --accent:      #d4822a;        /* copper-amber — primary accent (replaces blue/indigo) */
+  --accent-hi:   #f0a84a;        /* bright amber highlight */
+  --accent-glow: rgba(212,130,42,0.18);
+  --teal:        #2aab8c;        /* secondary accent */
+  --red:         #e0513a;
+  --orange:      #e07830;
+  --yellow:      #d4aa30;
+  --font:        'Inter', system-ui, sans-serif;
+  --mono:        'JetBrains Mono', monospace;
+  --toolbar-w:   152px;
+  --top-h:       44px;
+  --bottom-h:    320px;
+  --radius:      8px;
+  --radius-sm:   5px;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--font);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Game root ── */
+
+#game-root {
+  position: relative;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Canvas ── */
+
+#city-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+
+.citizen-inspector {
+  position: fixed; right: 18px; bottom: 18px; z-index: 60;
+  display: flex; flex-direction: column; gap: 5px; min-width: 230px;
+  padding: 12px 34px 12px 12px; color: #f5f0df;
+  background: rgba(13, 24, 22, 0.95); border: 1px solid #25b7a7;
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.45); font-size: 12px;
+}
+.test-minimap { position: fixed; z-index: 24; padding: 5px; background: rgba(13,24,22,.92); border: 1px solid rgba(245,197,66,.7); border-radius: 6px; pointer-events: auto; }
+.minimap-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: move; user-select: none; color: #f5c542; font: 700 9px var(--mono); letter-spacing: .08em; margin: 1px 3px 4px; }
+.minimap-header button, .minimap-show { border: 1px solid rgba(245,197,66,.5); border-radius: 3px; background: transparent; color: #f5c542; font: 700 9px var(--mono); cursor: pointer; padding: 2px 4px; }
+.minimap-show { position: fixed; top: 58px; right: 16px; z-index: 24; background: rgba(13,24,22,.92); }
+.test-minimap canvas { display: block; width: 288px; height: 216px; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+.citizen-inspector button { position: absolute; top: 5px; right: 8px; border: 0; background: none; color: #fff; font-size: 20px; cursor: pointer; }
+.citizen-inspector span { color: #b9c9c2; }

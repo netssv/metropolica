@@ -1,0 +1,60 @@
+.zoom-btn {
+  width: 32px; height: 32px;
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.zoom-btn:hover { background: rgba(255,255,255,0.1); }
+#zoom-label {
+  font-size: 0.6rem;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  text-align: center;
+  min-width: 36px;
+}
+
+/* ── Corruption strip (top-right) ── */
+
+#corruption-strip {
+  position: absolute;
+  top: var(--top-h);
+  right: 14px;
+  margin-top: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+}
+.corr-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+.corr-track {
+  width: 80px; height: 5px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.corr-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--yellow), var(--red));
+  border-radius: 3px;
+  transition: width 0.5s;
+}
+.corr-val {
+  font-size: 0.62rem;
+  font-family: var(--mono);
+  color: var(--orange);
+  font-weight: 700;
+}
+
