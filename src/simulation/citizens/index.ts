@@ -20,6 +20,7 @@ export type CitizenPoolProfile = {
 
 export type Citizen = {
   id: string;
+  districtId?: string;
   householdId: string;
   age: number;
   occupation: string;
@@ -27,6 +28,13 @@ export type Citizen = {
   aspirations: number[];
   traits: number[];
   relationships: string[];
+  education?: string;
+  householdType?: string;
+  municipality?: string;
+  region?: string;
+  language?: string;
+  interests?: string[];
+  workplaceType?: string;
   currentProblem?: string;
   level: 2 | 3;
   activeCause?: ActivationCause;
@@ -54,6 +62,7 @@ export function assignCitizens(
       const householdId = `${districtId}-cohort-${i % Math.max(1, districtCohorts.length)}`;
       assigned[districtId].push({
         id: `${districtId}-citizen-${i + 1}`,
+        districtId,
         householdId,
         age: profile.age,
         occupation: profile.occupation,
@@ -61,6 +70,12 @@ export function assignCitizens(
         aspirations: [...profile.aspirations],
         traits: [...profile.traits],
         relationships: [],
+        education: profile.education,
+        householdType: profile.householdType,
+        municipality: profile.municipality,
+        region: profile.region,
+        language: profile.language,
+        interests: [...profile.interests],
         level: 2
       });
     }
@@ -133,8 +148,13 @@ export function deactivateCitizen(citizen: Citizen): Citizen {
   return { ...citizen, level: 2, activeCause: undefined, currentProblem: undefined };
 }
 
-function workTypeFor(occupation: string): string {
-  return /carne|fabric|manufact|industrial|constru|minería|agricul|pesca|energía/i.test(occupation) ? "bldg-i" : "bldg-c";
+function workplaceFor(citizen: Pick<Citizen, "occupation" | "interests">): { zone: string; label: string } {
+  const text = `${citizen.occupation} ${(citizen.interests ?? []).join(" ")}`.toLowerCase();
+  if (/gobierno|gubern|alcald|oficial|funcionario|estado|públic|public/.test(text)) return { zone: "bldg-c", label: "gobierno" };
+  if (/granja|agricul|ganad|pesca|campo|farm/.test(text)) return { zone: "bldg-i", label: "granja" };
+  if (/mall|centro comercial|tienda|compras|retail|ventas|viajes|turismo|restaurante/.test(text)) return { zone: "bldg-c", label: "comercio / mall" };
+  if (/carne|fabric|manufact|industrial|constru|minería|energía/.test(text)) return { zone: "bldg-i", label: "industria" };
+  return { zone: "bldg-c", label: "comercio" };
 }
 
 /** Assign real map locations only to the existing individually active subset. */
@@ -153,17 +173,19 @@ export function assignCommuteLocations(
     let workIndex = 0;
     return [districtId, citizens.map(citizen => {
       if (citizen.level !== 3) return citizen;
-      if (citizen.homeTile && citizen.workTile && citizen.workShift) return citizen;
-      if (citizen.homeTile && citizen.workTile) return { ...citizen, workShift: { startHour: 8, endHour: 16 } };
+      const workplace = workplaceFor(citizen);
+      if (citizen.homeTile && citizen.workTile && citizen.workShift && citizen.workplaceType === workplace.label) return citizen;
+      if (citizen.homeTile && citizen.workTile) return { ...citizen, workShift: { startHour: 8, endHour: 16 }, workplaceType: workplace.label };
       const home = homes[homeIndex++ % Math.max(1, homes.length)] ?? fallbackHomes[homeIndex++ % Math.max(1, fallbackHomes.length)];
-      const preferredWorks = workTypeFor(citizen.occupation) === "bldg-i" ? industrialWorks : commercialWorks;
-      const alternateWorks = workTypeFor(citizen.occupation) === "bldg-i" ? commercialWorks : industrialWorks;
+      const preferredWorks = workplace.zone === "bldg-i" ? industrialWorks : commercialWorks;
+      const alternateWorks = workplace.zone === "bldg-i" ? commercialWorks : industrialWorks;
       const work = preferredWorks[workIndex++ % Math.max(1, preferredWorks.length)] ?? alternateWorks[workIndex++ % Math.max(1, alternateWorks.length)] ?? fallbackWorks[workIndex++ % Math.max(1, fallbackWorks.length)];
       return home && work ? {
         ...citizen,
         homeTile: { col: home.col, row: home.row },
         workTile: { col: work.col, row: work.row },
-        workShift: { startHour: 8, endHour: 16 }
+        workShift: { startHour: 8, endHour: 16 },
+        workplaceType: workplace.label
       } : citizen;
     })];
   }));

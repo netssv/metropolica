@@ -246,10 +246,16 @@ export default function CanvasMap() {
       <strong>{selectedEntity.kind === 'citizen' ? 'Vehículo ciudadano' : selectedEntity.kind === 'traffic-car' ? 'Vehículo ambiental' : 'Elemento del mapa'}</strong>
       {selectedEntity.kind === 'citizen' && <>
         <span>ID: {selectedEntity.value.id}</span>
-        <span>Distrito: {selectedEntity.value.id?.split('-citizen-')[0] ?? '—'}</span>
+        <span>Distrito: {selectedEntity.value.districtId ?? selectedEntity.value.id?.split('-citizen-')[0] ?? '—'}</span>
         <span>Hogar: {selectedEntity.value.householdId ?? '—'}</span>
         <span>Edad: {selectedEntity.value.age ?? '—'}</span>
         <span>Ocupación: {selectedEntity.value.occupation ?? '—'}</span>
+        <span>Destino: {selectedEntity.value.workplaceType ?? '—'}</span>
+        <span>Educación: {selectedEntity.value.education ?? '—'}</span>
+        <span>Municipio: {selectedEntity.value.municipality ?? '—'}</span>
+        <span>Región: {selectedEntity.value.region ?? '—'}</span>
+        <span>Idioma: {selectedEntity.value.language ?? '—'}</span>
+        <span>Intereses: {selectedEntity.value.interests?.join(', ') || '—'}</span>
         <span>Nivel: {selectedEntity.value.level} · Estado: activo</span>
         <span>Causa: {selectedEntity.value.activeCause ?? '—'}</span>
         <span>Problema actual: {selectedEntity.value.currentProblem ?? '—'}</span>
@@ -257,9 +263,9 @@ export default function CanvasMap() {
         <span>Propósito: ir al trabajo</span>
         <span>Turno: {selectedEntity.value.workShift ? `${String(selectedEntity.value.workShift.startHour).padStart(2, '0')}:00–${String(selectedEntity.value.workShift.endHour).padStart(2, '0')}:00` : '—'}</span>
         <span>Trabajo: ({selectedEntity.value.workTile?.col ?? '—'}, {selectedEntity.value.workTile?.row ?? '—'})</span>
-        <span>Habilidades: {selectedEntity.value.skills?.join(', ') || '—'}</span>
-        <span>Aspiraciones: {selectedEntity.value.aspirations?.join(', ') || '—'}</span>
-        <span>Rasgos: {selectedEntity.value.traits?.join(', ') || '—'}</span>
+        <span>Habilidades: {selectedEntity.value.skills?.map((value: number) => value.toFixed(2)).join(', ') || '—'}</span>
+        <span>Aspiraciones: {selectedEntity.value.aspirations?.map((value: number) => value.toFixed(2)).join(', ') || '—'}</span>
+        <span>Rasgos: {selectedEntity.value.traits?.map((value: number) => value.toFixed(2)).join(', ') || '—'}</span>
         <span>Relaciones: {selectedEntity.value.relationships?.join(', ') || '—'}</span>
       </>}
       {selectedEntity.kind === 'traffic-car' && <>

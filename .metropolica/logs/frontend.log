@@ -8,3 +8,5 @@
 [HOME RENDER]
  GET / 200 in 191ms (next.js: 60ms, application-code: 131ms)
 ✓ Compiled in 75ms
+✓ Compiled in 63ms
+✓ Compiled in 69ms
