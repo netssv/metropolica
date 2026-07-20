@@ -12,7 +12,64 @@ tracked citizens can be activated around important events, policies, organizatio
 
 ## Current sprint
 
-**Sprint 16 — Isometric view migration (assets + rendering engine)**
+**Sprint 18 follow-up — Citizen data, purposeful destinations, and UI inspection**
+
+The active work is now focused on making the small individually tracked citizen subset
+understandable and traceable in the map UI. Restart the backend after simulation-model changes so
+citizens are rebuilt from the current Nemotron-derived sample pool.
+
+## Current implementation snapshot
+
+Completed:
+
+- `scripts/start.sh` starts backend and frontend together, writes service logs, and maintains
+  `STARTUP_BACKLOG.md` for startup failures.
+- The isometric renderer uses the current sprite sheet, removes red/pink chroma-key bleed, anchors
+  sprites to tile bottoms, and renders roads with distinct asphalt plus adjacency-aware markings.
+- Ambient traffic (`frontend/src/lib/trafficSystem.ts`) uses a shared road graph and preserves car
+  progress when roads are edited. Buildings do not rebuild traffic.
+- Active Level-3 citizens have backend-owned home/work tiles and commute markers in
+  `frontend/src/lib/citizenTransit.ts`. Citizen activity is preserved when another citizen is
+  activated or when buildings/roads are edited; only a new simulated day changes commute direction.
+- Citizen clicking uses the Inspector tool and shows identity, district, Nemotron profile fields,
+  activation cause/problem, home/work, shift, and workplace classification.
+- The top HUD metrics are shortcuts: population opens active/inactive citizens, approval opens
+  opinion, and time/treasury open the city panel. Clicking the same shortcut again closes it.
+- Minimap is visible by default on the right, draggable, clickable for camera movement, and hideable.
+- Simulation clock displays `HH:MM`, with speed controls `1×`, `2×`, `4×`, and `8×`.
+
+Recent citizen-data fix:
+
+- `content/citizens/sample_pool.json` already contains education, household type, municipality,
+  region, language and rich interests from the Nemotron preparation pipeline.
+- `src/simulation/citizens/index.ts` now copies those fields into each citizen, adds `districtId`,
+  and classifies work destinations from occupation/interests (government, commerce/mall, farm, or
+  industry). Existing map types are used as temporary spatial fallbacks because dedicated
+  government/mall/farm building types do not yet exist.
+- The inspector formats numeric vectors to two decimals. If an old running backend still shows `—`
+  for these profile fields, stop it and restart with `./start.sh`.
+
+Verification baseline:
+
+- `node --test test/**/*.test.ts`: 3/3 passing.
+- Modified frontend files have no targeted TypeScript errors. The repository still has a known
+  unrelated TypeScript configuration error for backend `.ts` import extensions when invoking the
+  frontend compiler across the whole project.
+
+Next recommended steps:
+
+1. Restart and inspect `centro-citizen-1` to confirm the full Nemotron profile appears through
+   `/api/state`, not only in the frontend.
+2. Add explicit destination metadata (`workplaceType` and a stable destination tile) to the citizen
+   inspector/minimap and verify occupation-to-destination mappings with tests.
+3. Introduce dedicated government, mall and farm tile/building types only when authorized; keep
+   the current zone fallback until renderer assets and simulation zoning rules exist.
+4. Add focused tests for profile field preservation, destination classification, and activation
+   not resetting existing citizen-trip progress.
+5. Run a real browser verification: activate two citizens, confirm both markers move, add a building,
+   add a road, and confirm neither marker nor ambient traffic restarts.
+
+## Sprint 18 — Purposeful citizen movement
 
 ## Sprint 18 — Purposeful citizen movement
 
