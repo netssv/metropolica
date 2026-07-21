@@ -2,7 +2,26 @@ import { test } from "node:test";
 import assert from "node:assert";
 import { ScenarioRunner } from "../src/simulation/scenario/index.ts";
 import { ciudadDividida } from "../src/content/scenarios/ciudad_dividida.ts";
-import { activeCitizenCount } from "../src/simulation/citizens/index.ts";
+import { activeCitizenCount, assignCommuteLocations, workplaceFor } from "../src/simulation/citizens/index.ts";
+
+test("occupation classification distinguishes health and non-retail services", () => {
+  assert.strictEqual(workplaceFor({ occupation: "Médico de hospital" }).label, "salud / hospital");
+  assert.strictEqual(workplaceFor({ occupation: "Funcionario municipal" }).label, "gobierno");
+  assert.strictEqual(workplaceFor({ occupation: "Venta al por mayor de alimentos" }).label, "servicios");
+  assert.strictEqual(workplaceFor({ occupation: "Vendedor minorista" }).label, "comercio / mall");
+});
+
+test("commute destinations distribute across multiple industrial tiles deterministically", () => {
+  const tiles = [0, 1, 2].map(col => ({ col, row: 0, type: "bldg-i", level: 0, age: 0 }))
+    .concat([0, 1, 2].map(col => ({ col, row: 1, type: "bldg-r", level: 0, age: 0 })));
+  const citizens = ["a", "b", "c"].map(id => ({ id, occupation: "Operario industrial", level: 3,
+    householdId: "cohort-1" } as any));
+  const assigned = assignCommuteLocations({ distrito: citizens }, [{ id: "distrito", tiles } as any]);
+  const workTiles = assigned.distrito.map(citizen => `${citizen.workTile?.col},${citizen.workTile?.row}`);
+  assert.ok(new Set(workTiles).size > 1);
+  const repeated = assignCommuteLocations(assigned, [{ id: "distrito", tiles } as any]);
+  assert.deepStrictEqual(repeated.distrito.map(citizen => citizen.workTile), assigned.distrito.map(citizen => citizen.workTile));
+});
 
 test("sprint 7a: citizen integration, decision scoring, selective activation, and lifecycle", async (t) => {
   const game = new ScenarioRunner(ciudadDividida);
@@ -14,10 +33,10 @@ test("sprint 7a: citizen integration, decision scoring, selective activation, an
   assert.strictEqual(totalCitizens, 60);
   assert.strictEqual(game.citizens.periferia.length, 20);
 
-  // Initially no organization is active, all citizens should be Level 2
+  // Eight deterministic citizens now occupy the former driving slots.
   const initialActive = activeCitizenCount(game.citizens);
   console.log(`[Test] Initial Level 3 citizens: ${initialActive}`);
-  assert.strictEqual(initialActive, 0);
+  assert.strictEqual(initialActive, 30);
   
   let periferiaCitizen = game.citizens.periferia[0];
   assert.strictEqual(periferiaCitizen.level, 2);
@@ -111,4 +130,22 @@ test("sprint 7a: citizen integration, decision scoring, selective activation, an
   
   console.log(`[Performance] Scaling check: inactive is ${(timeWithAllActive / Math.max(0.001, timeWithNoneActive)).toFixed(1)}x faster.`);
   assert.ok(timeWithNoneActive < timeWithAllActive, "Ticks with inactive citizens should be faster than with active citizens");
+});
+
+test("startup driving slots promote exactly thirty citizens without Inspector duplication", () => {
+  const game = new ScenarioRunner(ciudadDividida);
+  const all = () => Object.values(game.citizens).flat();
+  const driving = () => all().filter(citizen => citizen.activeCause === "driving");
+  assert.strictEqual(driving().length, 30);
+  assert.strictEqual(new Set(driving().map(citizen => citizen.id)).size, 30);
+  const selected = driving()[0];
+  game.inspectedCitizens.add(selected.id);
+  game.syncCitizenActivationNow();
+  const inspected = all().find(citizen => citizen.id === selected.id);
+  assert.strictEqual(driving().length, 30);
+  assert.strictEqual(all().filter(citizen => citizen.id === selected.id).length, 1);
+  assert.strictEqual(inspected?.drivingSlot, selected.drivingSlot);
+  game.inspectedCitizens.delete(selected.id);
+  game.syncCitizenActivationNow();
+  assert.strictEqual(driving().length, 30);
 });

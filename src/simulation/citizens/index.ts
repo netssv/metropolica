@@ -2,6 +2,8 @@ import { SeededRandom } from "../../core/random/index.ts";
 import type { CityState } from "../models.ts";
 import type { HouseholdCohort, HouseholdTickOutput } from "../households/index.ts";
 import type { EventFootprint } from "../opinion/index.ts";
+export { workplaceFor } from './classification.ts';
+export { assignCommuteLocations } from './destinations.ts';
 
 export type CitizenPoolProfile = {
   id: string;
@@ -40,10 +42,13 @@ export type Citizen = {
   activeCause?: ActivationCause;
   homeTile?: { col: number; row: number };
   workTile?: { col: number; row: number };
+  commercialTile?: { col: number; row: number };
+  refuelTile?: { col: number; row: number };
   workShift?: { startHour: number; endHour: number };
+  drivingSlot?: number;
 };
 
-export type ActivationCause = "policy" | "organization" | "footprint" | "inspection";
+export type ActivationCause = "policy" | "organization" | "footprint" | "inspection" | "driving";
 export type CitizenDecision = { activity: string; score: number };
 
 export function assignCitizens(
@@ -141,54 +146,28 @@ export function chooseActivity(
 }
 
 export function activateCitizen(citizen: Citizen, cause: ActivationCause, problem?: string): Citizen {
+  if (citizen.level === 3 && citizen.activeCause === "driving" && cause === "inspection") {
+    return { ...citizen, currentProblem: citizen.currentProblem ?? problem };
+  }
   return { ...citizen, level: 3, activeCause: cause, currentProblem: problem };
+}
+
+/** Promote a deterministic set of existing pool citizens into bounded driving slots. */
+export function assignDrivingCitizens(assigned: Record<string, Citizen[]>, slots = 30): Record<string, Citizen[]> {
+  const candidates = Object.values(assigned).flat().filter(citizen => citizen.level === 2);
+  const selected = candidates.slice(Math.max(0, candidates.length - slots));
+  const slotById = new Map(selected.map((citizen, index) => [citizen.id, index]));
+  return Object.fromEntries(Object.entries(assigned).map(([districtId, citizens]) => [
+    districtId,
+    citizens.map(citizen => {
+      const slot = slotById.get(citizen.id);
+      return slot === undefined ? citizen : activateCitizen({ ...citizen, drivingSlot: slot }, "driving", "conductor ciudadano");
+    })
+  ]));
 }
 
 export function deactivateCitizen(citizen: Citizen): Citizen {
   return { ...citizen, level: 2, activeCause: undefined, currentProblem: undefined };
-}
-
-function workplaceFor(citizen: Pick<Citizen, "occupation" | "interests">): { zone: string; label: string } {
-  const text = `${citizen.occupation} ${(citizen.interests ?? []).join(" ")}`.toLowerCase();
-  if (/gobierno|gubern|alcald|oficial|funcionario|estado|públic|public/.test(text)) return { zone: "bldg-c", label: "gobierno" };
-  if (/granja|agricul|ganad|pesca|campo|farm/.test(text)) return { zone: "bldg-i", label: "granja" };
-  if (/mall|centro comercial|tienda|compras|retail|ventas|viajes|turismo|restaurante/.test(text)) return { zone: "bldg-c", label: "comercio / mall" };
-  if (/carne|fabric|manufact|industrial|constru|minería|energía/.test(text)) return { zone: "bldg-i", label: "industria" };
-  return { zone: "bldg-c", label: "comercio" };
-}
-
-/** Assign real map locations only to the existing individually active subset. */
-export function assignCommuteLocations(
-  assigned: Record<string, Citizen[]>,
-  districts: CityState["districts"]
-): Record<string, Citizen[]> {
-  return Object.fromEntries(Object.entries(assigned).map(([districtId, citizens]) => {
-    const tiles = districts.find(d => d.id === districtId)?.tiles ?? [];
-    const homes = tiles.filter(t => t.type === "bldg-r" || t.type === "zone-r");
-    const commercialWorks = tiles.filter(t => t.type === "bldg-c" || t.type === "zone-c");
-    const industrialWorks = tiles.filter(t => t.type === "bldg-i" || t.type === "zone-i");
-    const fallbackHomes = tiles.filter(t => t.type === "grass");
-    const fallbackWorks = tiles.filter(t => t.type === "bldg-c" || t.type === "bldg-i" || t.type === "grass");
-    let homeIndex = 0;
-    let workIndex = 0;
-    return [districtId, citizens.map(citizen => {
-      if (citizen.level !== 3) return citizen;
-      const workplace = workplaceFor(citizen);
-      if (citizen.homeTile && citizen.workTile && citizen.workShift && citizen.workplaceType === workplace.label) return citizen;
-      if (citizen.homeTile && citizen.workTile) return { ...citizen, workShift: { startHour: 8, endHour: 16 }, workplaceType: workplace.label };
-      const home = homes[homeIndex++ % Math.max(1, homes.length)] ?? fallbackHomes[homeIndex++ % Math.max(1, fallbackHomes.length)];
-      const preferredWorks = workplace.zone === "bldg-i" ? industrialWorks : commercialWorks;
-      const alternateWorks = workplace.zone === "bldg-i" ? commercialWorks : industrialWorks;
-      const work = preferredWorks[workIndex++ % Math.max(1, preferredWorks.length)] ?? alternateWorks[workIndex++ % Math.max(1, alternateWorks.length)] ?? fallbackWorks[workIndex++ % Math.max(1, fallbackWorks.length)];
-      return home && work ? {
-        ...citizen,
-        homeTile: { col: home.col, row: home.row },
-        workTile: { col: work.col, row: work.row },
-        workShift: { startHour: 8, endHour: 16 },
-        workplaceType: workplace.label
-      } : citizen;
-    })];
-  }));
 }
 
 export function syncCitizenActivation(
@@ -224,7 +203,7 @@ export function syncCitizenActivation(
         }
 
         // Deactivation: if the citizen is currently level 3, but the cause is no longer present
-        if (citizen.level === 3) {
+        if (citizen.level === 3 && citizen.activeCause !== "driving") {
           if (citizen.activeCause === "inspection" && !inspectedIds.has(citizen.id)) {
             return deactivateCitizen(citizen);
           }

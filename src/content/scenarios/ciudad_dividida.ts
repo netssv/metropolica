@@ -10,9 +10,9 @@ export type CiudadDivididaContent = {
 
 const utility = (capacity: number) => ({ capacity, demand: 0, coverage: 1, maintenance: 0.9 });
 const baseDistrict = (id: string, population: number, income: number, trust: number, approval = 0.56): District => ({
-  id, population, approval, services: { water: utility(1000), electricity: utility(1000), waste: 0.7, safety: 0.6, internet: 0.7 },
-  economy: { employment: 0.75, averageIncome: income, costOfLiving: 500 },
-  social: { inequality: 0.3, trust, institutionalTrust: trust, unrest: 0, crimeRisk: 0, atRisk: false }
+  id, population, approval, services: { water: utility(1000), electricity: utility(1000), waste: 0.7, safety: 0.6, internet: 0.7, gasolina: utility(0), supermercado: utility(0), hospitales: utility(0), bomberos: utility(0), ocio: utility(0), telefonía: utility(0) },
+    economy: { employment: 0.75, averageIncome: income, costOfLiving: 500, commercialRevenue: 0, industrialRevenue: 0 },
+  social: { inequality: 0.3, trust, institutionalTrust: trust, unrest: 0, crimeRisk: 0, atRisk: false }, tiles: []
 });
 const households = (income: number, size: number, unemployment: number): HouseholdCohort[] => [{
   size, income, savings: 400, debt: 1200, education: 0.5, unemployment,

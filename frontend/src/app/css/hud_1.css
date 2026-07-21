@@ -92,6 +92,10 @@
   background: rgba(255,255,255,0.12);
   color: #fff;
 }
+.hud-icon-btn.active { background: rgba(212,130,42,0.2); border-color: var(--accent); color: var(--accent); }
+.hud-icon-btn.pending { animation: hud-pulse 0.8s ease-in-out infinite alternate; }
+.hud-icon-btn:disabled { opacity: 0.7; cursor: wait; }
+@keyframes hud-pulse { from { box-shadow: 0 0 0 rgba(212,130,42,0); } to { box-shadow: 0 0 10px rgba(212,130,42,0.55); } }
 
 /* ── Left toolbar ── */
 

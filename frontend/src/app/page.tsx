@@ -1,5 +1,5 @@
 import { GameProvider } from '../components/GameProvider';
-import CanvasMap from '../components/CanvasMap';
+import CanvasMap from '../components/CanvasMap.tsx';
 import HUD from '../components/HUD';
 import Sidebar from '../components/Sidebar';
 import MainMenu from '../components/MainMenu';

@@ -1,5 +1,6 @@
 export interface PlayerCommand { readonly type: string; }
 export type ChangeTaxRateCommand = { readonly type: "CHANGE_TAX_RATE"; readonly value: number; };
+export type CitizenConsumptionCommand = { readonly type: "CITIZEN_CONSUMPTION"; readonly cohortId: string; readonly districtId: string; readonly activity: "shop" | "refuel"; readonly day: number; };
 export type SocialRiskCommand = { readonly type: "SET_AUDIT_LEVEL"; readonly value: number; } | { readonly type: "INVEST_SOCIAL_PROGRAM"; readonly district: string; readonly amount: number; };
 export type PressConferenceCommand = { readonly type: "HOLD_PRESS_CONFERENCE"; readonly topic: string; readonly message: "acknowledge" | "deny" | "reassure"; };
 
@@ -16,6 +17,7 @@ export type PlaceZoneCommand = {
   readonly cost: number;
   readonly col: number;
   readonly row: number;
+  readonly specialty?: "hospital" | "mall-government";
 };
 
 /**

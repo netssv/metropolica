@@ -1,0 +1,17 @@
+import { useEffect } from 'react';
+import type { MapCamera } from './useMapCamera';
+
+type Props = { canvasRef: any; camera: MapCamera; tileMapRef: any; simStateRef: any; currentToolRef: any; renderer: any; mapCols: number; mapRows: number; fetchStateRef: any; setCurrentTool: (tool: any) => void; setSelectedEntity: (value: any) => void; hoverRef: any };
+export function useMapInteraction({ canvasRef, camera, tileMapRef, simStateRef, currentToolRef, renderer, mapCols, mapRows, fetchStateRef, setCurrentTool, setSelectedEntity, hoverRef }: Props) {
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return; let dragging = false, x = 0, y = 0;
+    const move = (e: MouseEvent) => { if (dragging) { camera.panBy(e.clientX - x, e.clientY - y); x = e.clientX; y = e.clientY; } hoverRef.current = camera.gridAt(e.clientX, e.clientY); };
+    const down = (e: MouseEvent) => { if (e.button === 2 || currentToolRef.current === 'cursor') { dragging = true; x = e.clientX; y = e.clientY; } };
+    const up = () => { dragging = false; };
+    const click = async (e: MouseEvent) => { if (dragging) return; const citizens = simStateRef.current?.citizens ? Object.values(simStateRef.current.citizens).flat() as any[] : []; if (currentToolRef.current === 'cursor') { const citizen = renderer.citizenTransit.getCitizenAt(e.clientX, e.clientY, citizens); if (citizen) setSelectedEntity({ kind: 'citizen', value: { ...citizen, commuteDelayState: renderer.citizenTransit.getCommuteDelayState?.(citizen) } }); else { const g = camera.gridAt(e.clientX, e.clientY), tile = tileMapRef.current[g.row]?.[g.col]; setSelectedEntity(tile ? { kind: 'tile', value: { ...tile, ...g } } : null); } return; } const g = camera.gridAt(e.clientX, e.clientY); if (g.col < 0 || g.col >= mapCols || g.row < 0 || g.row >= mapRows) return; const tile = tileMapRef.current[g.row]?.[g.col]; if (!tile) return; const tool = currentToolRef.current; try { await fetch('/api/command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: tool === 'demolish' ? 'DEMOLISH_TILE' : 'PLACE_ZONE', zoneType: tool === 'demolish' ? undefined : tool, district: tile.owner || 'centro', col: g.col, row: g.row }) }); await fetchStateRef.current(); } catch (err) { console.error(err); } };
+    const wheel = (e: WheelEvent) => { e.preventDefault(); camera.zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.1 : 1 / 1.1); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { setCurrentTool('cursor'); setSelectedEntity(null); } };
+    canvas.addEventListener('mousedown', down); window.addEventListener('mousemove', move); window.addEventListener('mouseup', up); canvas.addEventListener('click', click); canvas.addEventListener('wheel', wheel, { passive: false }); window.addEventListener('keydown', key);
+    return () => { canvas.removeEventListener('mousedown', down); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); canvas.removeEventListener('click', click); canvas.removeEventListener('wheel', wheel); window.removeEventListener('keydown', key); };
+  }, [canvasRef, camera, tileMapRef, simStateRef, currentToolRef, renderer, mapCols, mapRows, fetchStateRef, setCurrentTool, setSelectedEntity, hoverRef]);
+}

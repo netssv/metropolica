@@ -10,6 +10,11 @@
     "dev:frontend": "cd frontend && npm run dev -- -p 3001",
     "dev": "npm run dev:backend & npm run dev:frontend",
     "start:all": "bash scripts/start.sh",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:frontend": "cd frontend && tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "typescript": "^5.9.3"
   }
 }

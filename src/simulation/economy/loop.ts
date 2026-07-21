@@ -16,11 +16,13 @@ export class EconomyLoop {
   private readonly city: CityState;
   private readonly cohorts: DistrictCohortMap;
   private readonly utilityCoverage?: (district: string) => UtilityCoverage;
-  constructor(city: CityState, cohorts: DistrictCohortMap, clock: SimulationClock, dispatcher: CommandDispatcher, utilityCoverage?: (district: string) => UtilityCoverage) {
+  private readonly proximityModifier?: (district: string) => number;
+  constructor(city: CityState, cohorts: DistrictCohortMap, clock: SimulationClock, dispatcher: CommandDispatcher, utilityCoverage?: (district: string) => UtilityCoverage, proximityModifier?: (district: string) => number) {
     this.city = city;
     this.cohorts = cohorts;
     this.utilityCoverage = utilityCoverage;
-    dispatcher.register("CHANGE_TAX_RATE", command => { this.city.taxRate = clampRate((command as { value: number }).value); });
+    this.proximityModifier = proximityModifier;
+    dispatcher.register("CHANGE_TAX_RATE", command => { this.city.taxRate = clampRate((command as unknown as { value: number }).value); });
     clock.onDailyTick(() => this.dailyHouseholdTick());
     clock.onWeeklyTick(() => this.weeklyEconomyTick());
   }
@@ -38,7 +40,7 @@ export class EconomyLoop {
     for (const district of this.city.districts) {
       const outputs = this.outputs.get(district.id) ?? [];
       allOutputs.push(...outputs);
-      Object.assign(district, aggregateDistrictEconomy(district, outputs));
+      Object.assign(district, aggregateDistrictEconomy(district, outputs, this.proximityModifier?.(district.id) ?? 0));
     }
     this.latest = summarizeEconomy(allOutputs, this.city.taxRate);
     this.city.treasury += this.latest.taxesCollected;

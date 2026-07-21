@@ -8,6 +8,11 @@ export type EventFootprint = { topic: string; severity: number; affectedDistrict
 type Channel = "socialMedia" | "newspapers" | "wordOfMouth";
 type FootprintState = { footprint: EventFootprint; age: number };
 export type OpinionBreakdown = { day: number; socialMedia: number; newspapers: number; wordOfMouth: number; pressConference: number; total: number };
+export const COVERAGE_THRESHOLD = 0.8;
+const COVERAGE_PENALTY_CAP = 0.30;
+const CRITICAL_SERVICES = ["water", "electricity", "safety", "hospitales", "bomberos"] as const;
+const CONVENIENCE_SERVICES = ["internet", "telefonía", "waste", "ocio", "gasolina", "supermercado"] as const;
+type CoverageService = typeof CRITICAL_SERVICES[number] | typeof CONVENIENCE_SERVICES[number];
 type ChannelParameters = { speed: number; reach: number; evidenceWeight: number; emotionMultiplier: number };
 const CHANNELS: Record<Channel, ChannelParameters> = {
   socialMedia: { speed: 0.35, reach: 1, evidenceWeight: 0.1, emotionMultiplier: 1.3 },
@@ -24,12 +29,13 @@ export function channelDelta(footprint: EventFootprint, channel: Channel, target
 }
 
 export class OpinionLoop {
-  readonly footprints: EventFootprint[] = [];
-  readonly breakdownHistory: OpinionBreakdown[] = [];
+  footprints: EventFootprint[] = [];
+  breakdownHistory: OpinionBreakdown[] = [];
   private readonly active: FootprintState[] = [];
   get activeFootprints(): EventFootprint[] { return this.active.map(a => a.footprint); }
   private previousRisk = new Map<string, boolean>();
   private previousCoverage = new Map<string, number>();
+  private previousCoveragePenalty = new Map<string, number>();
   private previousOrganizations = new Set<string>();
   private readonly city: CityState;
   private readonly cohorts: Record<string, HouseholdCohort[]>;
@@ -46,6 +52,13 @@ export class OpinionLoop {
     const breakdown = { day: this.clock.currentDay, socialMedia: 0, newspapers: 0, wordOfMouth: 0, pressConference: 0, total: 0 };
     for (const state of this.active) { for (const district of this.city.districts) this.applyChannels(state.footprint, district.id, breakdown); state.age++; }
     while (this.active[0]?.age > 4) this.active.shift();
+    for (const district of this.city.districts) {
+      const previousPenalty = this.previousCoveragePenalty.get(district.id) ?? 0;
+      district.approval = Math.min(1, Math.max(0, district.approval + previousPenalty));
+      const penalty = serviceCoveragePenalty(district);
+      district.approval = Math.min(1, Math.max(0, district.approval - penalty));
+      this.previousCoveragePenalty.set(district.id, penalty);
+    }
     this.city.approval = this.city.districts.reduce((sum, district) => sum + district.approval * district.population, 0) / Math.max(1, this.city.districts.reduce((sum, district) => sum + district.population, 0));
     breakdown.total = breakdown.socialMedia + breakdown.newspapers + breakdown.wordOfMouth + breakdown.pressConference;
     this.breakdownHistory.push(breakdown);
@@ -80,4 +93,20 @@ export class OpinionLoop {
     this.breakdownHistory.push({ day: this.clock.currentDay, socialMedia: 0, newspapers: 0, wordOfMouth: 0, pressConference: delta, total: delta });
   }
   private coverage(districtId: string): number { const district = this.city.districts.find(item => item.id === districtId)!; return Math.min(district.services.water.coverage, district.services.electricity.coverage); }
+}
+
+function serviceCoverage(service: unknown): number {
+  return typeof service === "number" ? service : (service as { coverage?: number } | undefined)?.coverage ?? 0;
+}
+
+export function serviceCoveragePenalty(district: CityState["districts"][number]): number {
+  let weightedDeficit = 0;
+  let totalWeight = 0;
+  for (const service of CRITICAL_SERVICES) { weightedDeficit += coverageDeficit(serviceCoverage(district.services[service])) * 4; totalWeight += 4; }
+  for (const service of CONVENIENCE_SERVICES) { weightedDeficit += coverageDeficit(serviceCoverage(district.services[service])) * 1; totalWeight += 1; }
+  return COVERAGE_PENALTY_CAP * weightedDeficit / totalWeight;
+}
+
+function coverageDeficit(coverage: number): number {
+  return Math.max(0, COVERAGE_THRESHOLD - coverage) / COVERAGE_THRESHOLD;
 }

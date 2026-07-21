@@ -19,6 +19,10 @@ function DistrictsTab({ districts }: { districts: any[] }) {
             <div className="progress-bar"><div className="progress-value" style={{ width: `${(d.approval ?? 0) * 100}%` }} /></div>
             <span>{((d.approval ?? 0) * 100).toFixed(0)}%</span>
           </div>
+          <div className="svc-row">
+            <span>{t('averageIncome')}</span>
+            <span>${Math.round(d.economy?.averageIncome ?? 0).toLocaleString()}</span>
+          </div>
           {d.services && (
             <div className="dc-services">
               {Object.entries(d.services).map(([k, v]: any) => (

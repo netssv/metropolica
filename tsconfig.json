@@ -1,11 +1,19 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "typeRoots": ["./frontend/node_modules/@types"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "frontend/**/*.ts", "frontend/**/*.tsx"],
+  "exclude": ["frontend/node_modules", "frontend/.next", "frontend/src/lib/camera.ts", "frontend/src/lib/gameLoop.ts", "frontend/src/lib/render.ts"]
 }

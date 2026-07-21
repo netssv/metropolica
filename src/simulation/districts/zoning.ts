@@ -1,5 +1,6 @@
 import type { CommandDispatcher, PlaceZoneCommand, DemolishTileCommand } from "../../core/commands/index.ts";
 import type { CityState } from "../models.ts";
+import type { TileState } from "../models.ts";
 
 /**
  * Sprint 11 — Zone placement effects on simulation state (first pass, flagged for review).
@@ -23,9 +24,27 @@ const TILE_COSTS: Record<string, number> = {
   road: 50, park: 75, power: 500,
 };
 const DEMOLISH_COST = 25;
+const ZONE_TYPES = new Set(["zone-r", "zone-c", "zone-i"]);
+export const PROXIMITY_RADIUS = 3;
+export const PROXIMITY_EFFECTS: Record<number, number> = { 1: 0.02, 2: 0.01, 3: 0.005 };
+
+export function calculateProximityModifier(tiles: TileState[]): number {
+  const homes = tiles.filter(tile => tile.type === "zone-r");
+  if (!homes.length) return 0;
+  const commercial = tiles.filter(tile => tile.type === "zone-c" || tile.type === "bldg-c");
+  const industrial = tiles.filter(tile => tile.type === "zone-i" || tile.type === "bldg-i");
+  const nearest = (home: TileState, candidates: TileState[]) => candidates.reduce((best, tile) => Math.min(best,
+    Math.abs(home.col - tile.col) + Math.abs(home.row - tile.row)), Infinity);
+  const total = homes.reduce((sum, home) => {
+    const effect = (distance: number) => distance <= PROXIMITY_RADIUS ? PROXIMITY_EFFECTS[distance] ?? 0 : 0;
+    return sum + effect(nearest(home, commercial)) - effect(nearest(home, industrial));
+  }, 0);
+  return total / homes.length;
+}
 
 export class ZoningLoop {
   private readonly city: CityState;
+  private readonly proximityCache = new Map<string, number>();
 
   constructor(city: CityState, dispatcher: CommandDispatcher) {
     this.city = city;
@@ -33,14 +52,28 @@ export class ZoningLoop {
     dispatcher.register("DEMOLISH_TILE", cmd => this.demolishTile(cmd as DemolishTileCommand));
   }
 
+  getProximityModifier(districtId: string): number {
+    if (!this.proximityCache.has(districtId)) this.recomputeProximity(districtId);
+    return this.proximityCache.get(districtId) ?? 0;
+  }
+
+  private recomputeProximity(districtId: string): void {
+    const district = this.city.districts.find(item => item.id === districtId);
+    if (district) this.proximityCache.set(districtId, calculateProximityModifier(district.tiles));
+  }
+
   private placeZone(cmd: PlaceZoneCommand): void {
     const expectedCost = TILE_COSTS[cmd.zoneType] ?? 0;
     // Authoritative treasury validation — use server-known cost, ignore client-provided value.
     if (this.city.treasury < expectedCost) return;
-    this.city.treasury -= expectedCost;
 
     const district = this.city.districts.find(d => d.id === cmd.district);
     if (!district) return;
+    const existingTile = district.tiles.find(t => t.col === cmd.col && t.row === cmd.row);
+    // Zoning may only replace an empty buildable plot. Buildings, roads,
+    // water, terrain, parks and infrastructure are not valid house plots.
+    if (ZONE_TYPES.has(cmd.zoneType) && (!existingTile || existingTile.type !== "grass")) return;
+    this.city.treasury -= expectedCost;
 
     switch (cmd.zoneType) {
       case "zone-r":
@@ -66,13 +99,15 @@ export class ZoningLoop {
       // road: no direct simulation field impact this sprint
     }
 
-    let tile = district.tiles.find(t => t.col === cmd.col && t.row === cmd.row);
+    let tile = existingTile;
     if (tile) {
       tile.type = cmd.zoneType;
       tile.level = 0;
+      tile.specialty = cmd.specialty;
     } else {
-      district.tiles.push({ col: cmd.col, row: cmd.row, type: cmd.zoneType, level: 0, age: 0 });
+    district.tiles.push({ col: cmd.col, row: cmd.row, type: cmd.zoneType, level: 0, age: 0, specialty: cmd.specialty });
     }
+    this.recomputeProximity(district.id);
   }
 
   private demolishTile(cmd: DemolishTileCommand): void {
@@ -89,5 +124,6 @@ export class ZoningLoop {
       tile.type = "grass";
       tile.level = 0;
     }
+    this.recomputeProximity(district.id);
   }
 }

@@ -1,6 +1,6 @@
-import { ISO_TILE_H, ISO_TILE_W } from './isoMath';
+import { ISO_TILE_H, ISO_TILE_W } from './isoMath.ts';
 
-type DrawArgs = { ctx: CanvasRenderingContext2D; px: number; py: number; zoom: number };
+type DrawArgs = { ctx: CanvasRenderingContext2D; px: number; py: number; zoom: number; seed?: number };
 type Tier = 0 | 1 | 2;
 export const PROCEDURAL_DETAIL_ZOOM = 1;
 const silhouetteCache = new Map<string, Path2D>();
@@ -10,6 +10,15 @@ const palettes = {
   commercial: ['#285b78', '#327fa1', '#55b9cf'],
   industrial: ['#565b60', '#777d80', '#a0a3a0'],
 } as const;
+const roofs = ['#b65d4c', '#8a5a3c', '#c9a05a'] as const;
+const awnings = ['#e5f6ed', '#f0c85a', '#d98b6c'] as const;
+const canopies = ['#72b85f', '#5fa86e', '#9bd477'] as const;
+const factoryTint = ['#777d80', '#6a7074', '#8a8680'] as const;
+
+/** Deterministic style index from tile seed. */
+export function buildingVariant(seed = 0, count = 3): number {
+  return ((seed >>> 0) % count);
+}
 
 function footprint({ ctx, px, py, zoom }: DrawArgs, color: string, roof = color) {
   const cx = px + ISO_TILE_W * zoom / 2, base = py + ISO_TILE_H * zoom;
@@ -53,54 +62,90 @@ function lot({ ctx, px, py, zoom }: DrawArgs, color: string) {
   ctx.fillStyle = color; ctx.fillRect(cx - 2 * zoom, base - hh, 4 * zoom, 2 * zoom);
 }
 
-function house({ ctx, px, py, zoom }: DrawArgs, tier: Tier) {
-  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette({ ctx, px, py, zoom }, 'r', tier);
-  if (tier === 0) return lot({ ctx, px, py, zoom }, palettes.residential[0]);
-  const { cx, base, hw, hh } = footprint({ ctx, px, py, zoom }, palettes.residential[tier], '#b65d4c');
+function house(args: DrawArgs, tier: Tier) {
+  const { ctx, zoom, seed = 0 } = args;
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'r', tier);
+  if (tier === 0) return lot(args, palettes.residential[0]);
+  const v = buildingVariant(seed);
+  const roof = roofs[v];
+  const { cx, base, hw, hh } = footprint(args, palettes.residential[tier], roof);
   const height = (tier === 1 ? 12 : 25) * zoom;
   ctx.fillStyle = tier === 1 ? '#5d9866' : '#7fbd72';
   ctx.fillRect(cx - hw * .6, base - hh - height, hw * 1.2, height);
   ctx.fillStyle = '#d7e3c0';
-  for (let y = base - hh - height + 5 * zoom; y < base - hh - 2 * zoom; y += 8 * zoom) ctx.fillRect(cx - hw * .4, y, 3 * zoom, 3 * zoom);
-  ctx.fillStyle = '#b65d4c';
+  const wx = cx - hw * (.45 - v * .08);
+  for (let y = base - hh - height + 5 * zoom; y < base - hh - 2 * zoom; y += 8 * zoom) ctx.fillRect(wx, y, 3 * zoom, 3 * zoom);
+  ctx.fillStyle = roof;
   ctx.beginPath(); ctx.moveTo(cx - hw * .75, base - hh - height); ctx.lineTo(cx, base - hh - height - 7 * zoom); ctx.lineTo(cx + hw * .75, base - hh - height); ctx.closePath(); ctx.fill();
+  if (v !== 1) {
+    ctx.fillStyle = '#5a3f2d';
+    ctx.fillRect(cx + (v === 0 ? -hw * .45 : hw * .25), base - hh - height - 4 * zoom, 3 * zoom, 6 * zoom);
+  }
 }
 
-function shop({ ctx, px, py, zoom }: DrawArgs, tier: Tier) {
-  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette({ ctx, px, py, zoom }, 'c', tier);
-  if (tier === 0) return lot({ ctx, px, py, zoom }, palettes.commercial[0]);
-  const { cx, base, hw, hh } = footprint({ ctx, px, py, zoom }, palettes.commercial[tier], '#8bd0df');
+function shop(args: DrawArgs, tier: Tier) {
+  const { ctx, zoom, seed = 0 } = args;
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'c', tier);
+  if (tier === 0) return lot(args, palettes.commercial[0]);
+  const v = buildingVariant(seed);
+  const { cx, base, hw, hh } = footprint(args, palettes.commercial[tier], '#8bd0df');
   const height = (tier === 1 ? 13 : 29) * zoom;
   ctx.fillStyle = tier === 1 ? '#327fa1' : '#55b9cf'; ctx.fillRect(cx - hw * .72, base - hh - height, hw * 1.44, height);
-  ctx.fillStyle = '#e5f6ed'; ctx.fillRect(cx - hw * .72, base - hh - height, hw * 1.44, 4 * zoom);
+  ctx.fillStyle = awnings[v]; ctx.fillRect(cx - hw * .72, base - hh - height, hw * 1.44, 4 * zoom);
   ctx.fillStyle = '#163b57';
   for (let x = cx - hw * .5; x < cx + hw * .5; x += 9 * zoom) ctx.fillRect(x, base - hh - height + 8 * zoom, 4 * zoom, Math.max(3, height - 12 * zoom));
+  if (tier === 2 && v === 2) {
+    ctx.fillStyle = '#c9d6e0';
+    ctx.fillRect(cx - 1 * zoom, base - hh - height - 8 * zoom, 2 * zoom, 8 * zoom);
+    ctx.fillRect(cx - 3 * zoom, base - hh - height - 9 * zoom, 6 * zoom, 2 * zoom);
+  }
 }
 
-function factory({ ctx, px, py, zoom }: DrawArgs, tier: Tier) {
-  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette({ ctx, px, py, zoom }, 'i', tier);
-  if (tier === 0) return lot({ ctx, px, py, zoom }, palettes.industrial[0]);
-  const { cx, base, hw, hh } = footprint({ ctx, px, py, zoom }, palettes.industrial[tier], '#b5b0a0');
+function factory(args: DrawArgs, tier: Tier) {
+  const { ctx, zoom, seed = 0 } = args;
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'i', tier);
+  if (tier === 0) return lot(args, palettes.industrial[0]);
+  const v = buildingVariant(seed);
+  const { cx, base, hw, hh } = footprint(args, palettes.industrial[tier], '#b5b0a0');
   const height = (tier === 1 ? 10 : 21) * zoom;
-  ctx.fillStyle = tier === 1 ? '#777d80' : '#a0a3a0'; ctx.fillRect(cx - hw * .8, base - hh - height, hw * 1.6, height);
-  ctx.fillStyle = '#3e4548'; ctx.fillRect(cx + hw * .25, base - hh - height - 12 * zoom, 6 * zoom, 12 * zoom);
+  ctx.fillStyle = tier === 1 ? factoryTint[v] : '#a0a3a0'; ctx.fillRect(cx - hw * .8, base - hh - height, hw * 1.6, height);
+  ctx.fillStyle = '#3e4548';
+  if (v !== 1) ctx.fillRect(cx + hw * .25, base - hh - height - 12 * zoom, 6 * zoom, 12 * zoom);
+  if (v !== 0) ctx.fillRect(cx - hw * .55, base - hh - height - (v === 2 ? 10 : 12) * zoom, 5 * zoom, v === 2 ? 10 * zoom : 12 * zoom);
   ctx.fillStyle = '#c6c9b7';
   for (let x = cx - hw * .6; x < cx + hw * .35; x += 10 * zoom) ctx.fillRect(x, base - hh - height + 5 * zoom, 5 * zoom, 4 * zoom);
 }
 
-const residentialTier0 = (args: DrawArgs) => house(args, 0);
-const residentialTier1 = (args: DrawArgs) => house(args, 1);
-const residentialTier2 = (args: DrawArgs) => house(args, 2);
-const commercialTier0 = (args: DrawArgs) => shop(args, 0);
-const commercialTier1 = (args: DrawArgs) => shop(args, 1);
-const commercialTier2 = (args: DrawArgs) => shop(args, 2);
-const industrialTier0 = (args: DrawArgs) => factory(args, 0);
-const industrialTier1 = (args: DrawArgs) => factory(args, 1);
-const industrialTier2 = (args: DrawArgs) => factory(args, 2);
+function specialtyBuilding(args: DrawArgs, tier: Tier, kind: 'hospital' | 'mall-government') {
+  const { ctx, zoom } = args;
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'c', tier);
+  const base = kind === 'hospital' ? '#d8e6e1' : '#55a9bd';
+  const accent = kind === 'hospital' ? '#d9364b' : '#f0c85a';
+  const { cx, base: ground, hw, hh } = footprint(args, base, accent);
+  const height = (tier === 0 ? 0 : tier === 1 ? 15 : 30) * zoom;
+  if (!height) {
+    ctx.fillStyle = accent;
+    if (kind === 'hospital') {
+      ctx.fillRect(cx - 2 * zoom, ground - hh - 7 * zoom, 4 * zoom, 12 * zoom);
+      ctx.fillRect(cx - 6 * zoom, ground - hh - 3 * zoom, 12 * zoom, 4 * zoom);
+    } else {
+      ctx.fillRect(cx - 7 * zoom, ground - hh - 5 * zoom, 14 * zoom, 3 * zoom);
+      ctx.fillRect(cx - 4 * zoom, ground - hh - 8 * zoom, 3 * zoom, 6 * zoom);
+      ctx.fillRect(cx + 1 * zoom, ground - hh - 8 * zoom, 3 * zoom, 6 * zoom);
+    }
+    return;
+  }
+  ctx.fillStyle = base; ctx.fillRect(cx - hw * .72, ground - hh - height, hw * 1.44, height);
+  ctx.fillStyle = accent; ctx.fillRect(cx - hw * .72, ground - hh - height, hw * 1.44, 4 * zoom);
+  ctx.fillStyle = kind === 'hospital' ? '#f7f3e8' : '#183b57';
+  ctx.fillRect(cx - 2 * zoom, ground - hh - height * .65, 4 * zoom, height * .3);
+  ctx.fillRect(cx - hw * .25, ground - hh - height * .5, hw * .5, 4 * zoom);
+}
 
-export function drawPowerPlant({ ctx, px, py, zoom }: DrawArgs) {
-  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette({ ctx, px, py, zoom }, 'i', 2);
-  const { cx, base, hw, hh } = footprint({ ctx, px, py, zoom }, '#59656a', '#c2a84d');
+export function drawPowerPlant(args: DrawArgs) {
+  const { ctx, zoom } = args;
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'i', 2);
+  const { cx, base, hw, hh } = footprint(args, '#59656a', '#c2a84d');
   const height = 18 * zoom;
   ctx.fillStyle = '#747d7d'; ctx.fillRect(cx - hw * .7, base - hh - height, hw * 1.4, height);
   ctx.fillStyle = '#39454a'; ctx.fillRect(cx - hw * .4, base - hh - height - 10 * zoom, 5 * zoom, 10 * zoom);
@@ -110,21 +155,25 @@ export function drawPowerPlant({ ctx, px, py, zoom }: DrawArgs) {
   ctx.fillStyle = '#f1d76a'; ctx.fillRect(cx - 2 * zoom, base - hh - height + 5 * zoom, 4 * zoom, 4 * zoom);
 }
 
-export function drawPark({ ctx, px, py, zoom }: DrawArgs) {
-  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette({ ctx, px, py, zoom }, 'r', 0);
-  const { cx, base, hw, hh } = footprint({ ctx, px, py, zoom }, '#39754c', '#4c9a5d');
+export function drawPark(args: DrawArgs) {
+  const { ctx, zoom, seed = 0 } = args;
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'r', 0);
+  const v = buildingVariant(seed);
+  const { cx, base, hw, hh } = footprint(args, '#39754c', '#4c9a5d');
   ctx.strokeStyle = '#d5b86b'; ctx.lineWidth = Math.max(1.5, 2 * zoom);
   ctx.beginPath(); ctx.moveTo(cx - hw * .7, base - hh * .9); ctx.lineTo(cx + hw * .65, base - hh * .2); ctx.stroke();
-  for (const offset of [-.52, .38]) {
+  const offsets = v === 0 ? [-.52, .38] : v === 1 ? [-.35, .5] : [-.6, .2, .45];
+  for (const offset of offsets) {
     const tx = cx + hw * offset, ty = base - hh * (offset < 0 ? .9 : 1.15);
     ctx.fillStyle = '#5a3f2d'; ctx.fillRect(tx - 1.5 * zoom, ty, 3 * zoom, 8 * zoom);
-    ctx.fillStyle = '#72b85f'; ctx.fillRect(tx - 6 * zoom, ty - 7 * zoom, 12 * zoom, 8 * zoom);
+    ctx.fillStyle = canopies[v]; ctx.fillRect(tx - 6 * zoom, ty - 7 * zoom, 12 * zoom, 8 * zoom);
     ctx.fillStyle = '#9bd477'; ctx.fillRect(tx - 3 * zoom, ty - 11 * zoom, 6 * zoom, 5 * zoom);
   }
 }
 
-export function drawBuilding(type: string, tier: Tier, args: DrawArgs) {
-  if (type === 'bldg-r' || type === 'zone-r') return [residentialTier0, residentialTier1, residentialTier2][tier](args);
-  if (type === 'bldg-c' || type === 'zone-c') return [commercialTier0, commercialTier1, commercialTier2][tier](args);
-  if (type === 'bldg-i' || type === 'zone-i') return [industrialTier0, industrialTier1, industrialTier2][tier](args);
+export function drawBuilding(type: string, tier: Tier, args: DrawArgs, specialty?: 'hospital' | 'mall-government') {
+  if (specialty) return specialtyBuilding(args, tier, specialty);
+  if (type === 'bldg-r' || type === 'zone-r') return house(args, tier);
+  if (type === 'bldg-c' || type === 'zone-c') return shop(args, tier);
+  if (type === 'bldg-i' || type === 'zone-i') return factory(args, tier);
 }

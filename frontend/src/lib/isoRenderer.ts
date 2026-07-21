@@ -11,7 +11,9 @@
  */
 
 import { ISO_TILE_W, ISO_TILE_H, gridToIso } from './isoMath';
+import type { Projection } from './projection';
 import { T } from './constants';
+import { hasBusinessAccent } from './businessAccents';
 import { drawBuilding, drawPark, drawPowerPlant, PROCEDURAL_DETAIL_ZOOM } from './buildingSprites';
 
 const SPRITE_COLS = 5;
@@ -176,27 +178,6 @@ function drawDiamond(ctx: CanvasRenderingContext2D, px: number, py: number, zoom
 type TileMap = Array<Array<{ type?: string } | undefined>>;
 
 /** Reprojects the already-rendered isometric frame; this is the same map, not a second tile map. */
-export function drawOverviewMap(ctx: CanvasRenderingContext2D, source: HTMLCanvasElement, t: number, isoZoom: number, isoOx: number, isoOy: number, cols: number, rows: number) {
-  const pad = 24;
-  const cell = Math.min((ctx.canvas.width - pad * 2) / cols, (ctx.canvas.height - pad * 2) / rows);
-  const ox = (ctx.canvas.width - cols * cell) / 2;
-  const oy = (ctx.canvas.height - rows * cell) / 2;
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.fillStyle = '#07100d'; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  // Inverse of gridToIso: iso basis vectors become orthogonal top-down axes.
-  const sx = cell / (isoZoom * ISO_TILE_W);
-  const sy = cell / (isoZoom * ISO_TILE_H);
-  const a = sx * t + (1 - t), b = -sx * t;
-  const c = sy * t, d = sy * t + (1 - t);
-  const e = ox * t - sx * t * isoOx - sy * t * isoOy;
-  const f = oy * t - sy * t * isoOy + sx * t * isoOx;
-  ctx.globalAlpha = Math.min(1, t + 0.08);
-  ctx.setTransform(a, b, c, d, e, f);
-  ctx.drawImage(source, 0, 0);
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalAlpha = 1;
-}
-
 function isRoadAt(map: TileMap | undefined, col: number, row: number): boolean {
   const type = map?.[row]?.[col]?.type;
   return type === T.ROAD || type === T.BRIDGE;
@@ -257,20 +238,32 @@ function drawCrisisTint(ctx: CanvasRenderingContext2D, px: number, py: number, z
   ctx.fill();
 }
 
+function drawBusinessAccent(ctx: CanvasRenderingContext2D, type: string, col: number, row: number, px: number, py: number, zoom: number, accentTiles: any[] = []) {
+  if (type !== T.BLDG_C && type !== T.BLDG_I) return;
+  if (!hasBusinessAccent(type, col, row, accentTiles)) return;
+  const ax = px + ISO_TILE_W * zoom * .68, ay = py + 4 * zoom;
+  if (type === T.BLDG_I) {
+    ctx.fillStyle = '#ef6c3b'; ctx.fillRect(ax, ay, 5 * zoom, 8 * zoom);
+    ctx.fillStyle = '#2a2a2a'; ctx.fillRect(ax + 1.5 * zoom, ay - 3 * zoom, 2 * zoom, 3 * zoom);
+  } else {
+    ctx.fillStyle = '#f5d547'; ctx.fillRect(ax - 2 * zoom, ay, 9 * zoom, 5 * zoom);
+    ctx.fillStyle = '#c9a020'; ctx.fillRect(ax - 2 * zoom, ay, 9 * zoom, 2 * zoom);
+  }
+}
+
 /** Draw one tile (terrain + optional sprite). `inCrisis` adds a red overlay. */
 export function drawIsoTile(
   ctx: CanvasRenderingContext2D,
-  tile: { type: string; inCrisis?: boolean; growthTier?: 0 | 1 | 2 },
+  tile: { type: string; specialty?: 'hospital' | 'mall-government'; inCrisis?: boolean; growthTier?: 0 | 1 | 2; businessAccentTiles?: any[] },
   col: number,
   row: number,
   offsetX: number,
   offsetY: number,
   zoom: number,
   map?: TileMap,
+  project: Projection = (c, r) => { const p = gridToIso(c, r); return { x: p.x * zoom + offsetX, y: p.y * zoom + offsetY }; },
 ) {
-  const { x, y } = gridToIso(col, row);
-  const px = x * zoom + offsetX;
-  const py = y * zoom + offsetY;
+  const { x: px, y: py } = project(col, row);
 
   if (tile.type === T.WATER) {
     drawDiamond(ctx, px, py, zoom, '#1a5f8a');
@@ -296,20 +289,22 @@ export function drawIsoTile(
     return;
   }
 
+  const seed = col * 31 + row * 17;
   if (tile.type === T.BLDG_R || tile.type === T.BLDG_C || tile.type === T.BLDG_I ||
       tile.type === T.ZONE_R || tile.type === T.ZONE_C || tile.type === T.ZONE_I) {
-    drawBuilding(tile.type, tile.growthTier ?? 0, { ctx, px, py, zoom });
+    drawBuilding(tile.type, tile.growthTier ?? 0, { ctx, px, py, zoom, seed }, tile.specialty);
+    drawBusinessAccent(ctx, tile.type, col, row, px, py, zoom, tile.businessAccentTiles);
     if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
     return;
   }
 
   if (tile.type === T.POWER) {
-    drawPowerPlant({ ctx, px, py, zoom });
+    drawPowerPlant({ ctx, px, py, zoom, seed });
     if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
     return;
   }
   if (tile.type === T.PARK) {
-    drawPark({ ctx, px, py, zoom });
+    drawPark({ ctx, px, py, zoom, seed });
     if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
     return;
   }
@@ -341,10 +336,9 @@ export function drawIsoHover(
   offsetY: number,
   zoom: number,
   color: string,
+  project: Projection = (c, r) => { const p = gridToIso(c, r); return { x: p.x * zoom + offsetX, y: p.y * zoom + offsetY }; },
 ) {
-  const { x, y } = gridToIso(col, row);
-  const px = x * zoom + offsetX;
-  const py = y * zoom + offsetY;
+  const { x: px, y: py } = project(col, row);
   const hw = (ISO_TILE_W / 2) * zoom;
   const hh = (ISO_TILE_H / 2) * zoom;
   ctx.fillStyle = color + '55';

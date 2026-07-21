@@ -3,6 +3,7 @@ import type { TileState } from "../models.ts";
 
 export const MAP_COLS = 96;
 export const MAP_ROWS = 72;
+export const MIN_RESIDENTIAL_TILES_PER_DISTRICT = 12;
 
 export function generateInitialMap(seed = 1, cols = MAP_COLS, rows = MAP_ROWS): Record<string, TileState[]> {
   const random = new SeededRandom(seed);
@@ -18,9 +19,9 @@ export function generateInitialMap(seed = 1, cols = MAP_COLS, rows = MAP_ROWS): 
     return 'zona_industrial';
   };
 
-  const map = Array.from({ length: rows }, (_, r) =>
+  const map: Array<Array<{ type: string; owner: string; level: number; age: number; col: number; row: number; specialty?: TileState["specialty"] }>> = Array.from({ length: rows }, (_, r) =>
     Array.from({ length: cols }, (_, c) => ({
-      type: 'grass', owner: ownerForCol(c), level: 0, age: 0, col: c, row: r
+      type: 'grass', owner: ownerForCol(c), level: 0, age: 0, col: c, row: r, specialty: undefined
     }))
   );
 
@@ -117,10 +118,31 @@ export function generateInitialMap(seed = 1, cols = MAP_COLS, rows = MAP_ROWS): 
     }
   }
 
+  // Guarantee residential pockets without changing the seeded placement rolls.
+  for (const district of Object.keys(tilesByOwner)) {
+    const residential = () => map.flat().filter(tile => tile.owner === district && tile.type === 'bldg-r').length;
+    const eligible = map.flat()
+      .filter(tile => tile.owner === district && tile.type === 'grass' && nearRoad(tile.col, tile.row, 2))
+      .sort((a, b) => a.row - b.row || a.col - b.col);
+    const needed = Math.max(0, MIN_RESIDENTIAL_TILES_PER_DISTRICT - residential());
+    eligible.slice(0, needed).forEach(tile => { tile.type = 'bldg-r'; });
+    if (needed > eligible.length) {
+      console.warn(`[map] district ${district} has only ${residential()} residential tiles; map too small for minimum ${MIN_RESIDENTIAL_TILES_PER_DISTRICT}`);
+    }
+  }
+
+  // Dedicated Phase 1 service variants reuse commercial building tiles.
+  for (const district of Object.keys(tilesByOwner)) {
+    const commercial = map.flat().filter(tile => tile.owner === district && tile.type === 'bldg-c')
+      .sort((a, b) => a.row - b.row || a.col - b.col);
+    if (commercial[0]) commercial[0].specialty = 'hospital';
+    if (commercial[1]) commercial[1].specialty = 'mall-government';
+  }
+
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       const t = map[row][col];
-      tilesByOwner[t.owner].push({ col: t.col, row: t.row, type: t.type, level: t.level, age: t.age });
+      tilesByOwner[t.owner].push({ col: t.col, row: t.row, type: t.type, level: t.level, age: t.age, specialty: t.specialty });
     }
   }
 

@@ -2,7 +2,7 @@ import type { SimulationClock } from "../../core/clock/index.ts";
 import type { CommandDispatcher } from "../../core/commands/index.ts";
 import type { CityState } from "../models.ts";
 import type { HouseholdCohort } from "../households/index.ts";
-import { calculateDemand, updateUtility, type UtilityCoverage, type UtilityType } from "./coverage.ts";
+import { calculateDemand, updateUtility, serviceDemand, developedBusinessSupply, type UtilityCoverage, type UtilityType } from "./coverage.ts";
 
 export type DistrictCohortMap = Record<string, HouseholdCohort[]>;
 export type InvestUtilityCommand = { type: "INVEST_UTILITY"; district: string; utility: UtilityType; amount: number };
@@ -39,6 +39,8 @@ export class UtilitiesLoop {
     for (const district of this.city.districts) {
       const cohorts = this.cohorts[district.id] ?? [];
       for (const utility of ["water", "electricity"] as UtilityType[]) Object.assign(district, updateUtility(district, utility, calculateDemand(cohorts, utility)));
+      for (const utility of ["gasolina", "supermercado", "hospitales", "bomberos", "ocio", "telefonía"] as const) Object.assign(district, updateUtility(district, utility, serviceDemand(district, utility)));
+      for (const utility of ["gasolina", "supermercado", "hospitales", "bomberos", "ocio", "telefonía"] as const) district.services[utility].capacity = developedBusinessSupply(district, utility);
     }
   }
 }

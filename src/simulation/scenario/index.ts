@@ -10,7 +10,8 @@ import { OrganizationsLoop } from "../organizations/index.ts";
 import { OpinionLoop } from "../opinion/index.ts";
 import { ZoningLoop } from "../districts/zoning.ts";
 import { readFileSync } from "node:fs";
-import { assignCitizens, assignCommuteLocations, syncCitizenActivation, chooseActivity, type Citizen, type CitizenPoolProfile } from "../citizens/index.ts";
+import { assignCitizens, assignDrivingCitizens, syncCitizenActivation, chooseActivity, type Citizen, type CitizenPoolProfile } from "../citizens/index.ts";
+import { assignCommuteLocations } from "../citizens/destinations.ts";
 import type { HouseholdTickOutput } from "../households/index.ts";
 import { generateInitialMap } from "./map.ts";
 
@@ -37,23 +38,28 @@ export class ScenarioRunner {
   result: ScenarioResult = { status: "running", tick: 0 };
   private readonly content: CiudadDivididaContent;
   private readonly streaks = { treasury: 0, approval: 0 };
+  private readonly consumptionLedger = new Set<string>();
   constructor(content: CiudadDivididaContent, millisecondsPerDay = 3_600_000, seed = 1, citySize: CitySize = "big") {
     this.citySize = citySize;
     this.content = content; this.city = { ...content.startingCity, districts: content.districts.map(item => structuredClone(item.district)), organizations: [] };
+    for (const district of this.city.districts) for (const service of ["gasolina", "supermercado", "hospitales", "bomberos", "ocio", "telefonía"] as const) {
+      district.services[service] ??= { capacity: 0, demand: 0, coverage: 0, maintenance: 1 };
+    }
     const dimensions = CITY_SIZES[citySize];
     const initialTiles = generateInitialMap(seed, dimensions.cols, dimensions.rows);
     this.city.districts.forEach(d => { d.tiles = initialTiles[d.id] || []; });
     this.cohorts = Object.fromEntries(content.districts.map(item => [item.district.id, structuredClone(item.households)]));
     const pool = JSON.parse(readFileSync(new URL("../../../content/citizens/sample_pool.json", import.meta.url), "utf8")) as CitizenPoolProfile[];
-    this.citizens = assignCitizens(pool, this.city.districts.map(district => district.id), this.cohorts, 20);
+    this.citizens = assignDrivingCitizens(assignCitizens(pool, this.city.districts.map(district => district.id), this.cohorts, 20));
     this.citizens = assignCommuteLocations(this.citizens, this.city.districts);
     this.clock = new SimulationClock({ millisecondsPerSimulatedDay: millisecondsPerDay }); this.dispatcher = new CommandDispatcher();
+    this.dispatcher.register("CITIZEN_CONSUMPTION", command => this.applyConsumption(command as any));
     const utilities = new UtilitiesLoop(this.city, this.cohorts, this.clock, this.dispatcher);
-    this.economy = new EconomyLoop(this.city, this.cohorts, this.clock, this.dispatcher, id => utilities.coverage(id));
+    const zoning = new ZoningLoop(this.city, this.dispatcher);
+    this.economy = new EconomyLoop(this.city, this.cohorts, this.clock, this.dispatcher, id => utilities.coverage(id), id => zoning.getProximityModifier(id));
     new SocialRiskLoop(this.city, this.cohorts, this.clock, this.dispatcher);
     new OrganizationsLoop(this.city, this.cohorts, this.clock, this.dispatcher);
     this.opinion = new OpinionLoop(this.city, this.cohorts, this.clock, this.dispatcher);
-    new ZoningLoop(this.city, this.dispatcher);
     this.clock.onWeeklyTick(() => {
       this.citizens = syncCitizenActivation(
         this.citizens,
@@ -65,6 +71,18 @@ export class ScenarioRunner {
     });
     this.clock.onDailyTick(() => this.tickCitizens());
     this.clock.onWeeklyTick(tick => this.evaluate(tick));
+  }
+  private applyConsumption(command: { cohortId: string; districtId: string; activity: "shop" | "refuel"; day: number }): void {
+    if (!['shop', 'refuel'].includes(command.activity) || command.day !== this.clock.currentDay) throw new Error('Invalid citizen consumption command');
+    const district = this.city.districts.find(item => item.id === command.districtId);
+    const cohorts = this.cohorts[command.districtId] ?? [];
+    const index = Number(command.cohortId.split('-').pop()); const cohort = Number.isInteger(index) ? cohorts[index] : undefined;
+    if (!district || !cohort) throw new Error('Unknown consumption district or cohort');
+    const key = `${command.cohortId}:${command.day}:${command.activity}`; if (this.consumptionLedger.has(key)) throw new Error('Consumption already charged for cohort/day/activity');
+    const cost = command.activity === 'shop' ? 25 : 15; const charged = Math.min(cost, Math.max(0, cohort.disposableIncome ?? cohort.income));
+    cohort.disposableIncome = Math.max(0, (cohort.disposableIncome ?? cohort.income) - charged);
+    if (command.activity === 'shop') district.economy.commercialRevenue += charged; else district.economy.industrialRevenue += charged;
+    this.consumptionLedger.add(key);
   }
   private tickCitizens(): void {
     for (const [districtId, citizens] of Object.entries(this.citizens)) {

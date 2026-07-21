@@ -18,6 +18,7 @@ export interface HouseholdCohort {
   politicalLean: number;
   trust: number;
   stress: number;
+  disposableIncome?: number;
 }
 
 export interface HouseholdTickOutput {
@@ -30,12 +31,16 @@ export interface HouseholdTickOutput {
   needsSatisfied: number;
 }
 
+export const INFORMAL_INCOME_FLOOR_RATE = 0.25;
+
 /** Pure daily cohort calculation. Monetary inputs are monthly and prorated to one day. */
 export function simulateHouseholdTick(cohort: HouseholdCohort, taxRate: number, coverage = { water: 1, electricity: 1 }): HouseholdTickOutput {
   const safeTaxRate = clampRate(taxRate);
   const grossIncome = cohort.income * (1 - cohort.unemployment);
   const taxPaid = grossIncome * safeTaxRate;
-  const disposableIncome = grossIncome - taxPaid - cohort.needs.monthlyCost;
+  const formalDisposableIncome = grossIncome - taxPaid - cohort.needs.monthlyCost;
+  const informalIncome = cohort.needs.monthlyCost * INFORMAL_INCOME_FLOOR_RATE;
+  const disposableIncome = Math.max(formalDisposableIncome, informalIncome);
   const dailyDisposableIncome = disposableIncome / 30;
   const debtChange = Math.max(0, -dailyDisposableIncome) - Math.min(cohort.debt, Math.max(0, dailyDisposableIncome) * 0.25);
   const nextDebt = Math.max(0, cohort.debt + debtChange);
@@ -47,7 +52,7 @@ export function simulateHouseholdTick(cohort: HouseholdCohort, taxRate: number, 
     ...cohort,
     savings: Math.max(0, cohort.savings + dailySavingsChange),
     debt: nextDebt,
-    stress
+    stress, disposableIncome
   };
   return { cohort: next, grossIncome, taxPaid, disposableIncome, debtChange, stress, needsSatisfied };
 }

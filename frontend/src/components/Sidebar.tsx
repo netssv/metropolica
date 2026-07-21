@@ -28,7 +28,7 @@ export default function Sidebar() {
       </div>
 
       <div className="tool-section">
-        <div className="tool-sec-label">INFRA</div>
+        <div className="tool-sec-label">INFRAESTRUCTURA</div>
         <button className={`tool-btn ${currentTool === 'road' ? 'active' : ''}`} onClick={() => setCurrentTool('road')}>
           <span className="tool-ico">🛣️</span><span className="tool-name">Calle</span><span className="tool-cost">$50</span>
         </button>
