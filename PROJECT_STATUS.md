@@ -4,13 +4,22 @@
 
 Metropolica is a browser-oriented urban management simulation inspired by SimCity. Its focus is public
 resource management, city administration and contemporary metropolitan problems. The simulation is
-headless-first and currently uses TypeScript with deterministic aggregate systems; rendering and UI are
-scaffolded but intentionally out of scope so far.
+headless-first and uses TypeScript with deterministic aggregate systems. The active frontend renders the
+city through procedural Canvas 2D drawing, chosen for deterministic behavior, agent-friendly iteration and
+good runtime performance; external building-art dependencies are not part of the active visual path.
 
 The project models most residents as household cohorts. A small observational subset of individually
 tracked citizens can be activated around important events, policies, organizations or inspections.
 
 ## Current sprint
+
+**Current authorization update:** Phase 2b is implemented as a separate, independently tested increment.
+Low district coverage of seguridad, hospitales or bomberos may increase the existing
+crime/social-risk value through the existing aggregate module. The approved design uses a `0.8` coverage
+threshold, an equal-weight linear deficit across the three critical services and a maximum added penalty of
+`0.15`. The penalty must be recalculated fresh on the existing social-risk cadence and must never compound.
+Convenience services remain excluded, and crime/social-risk must never feed back into coverage, approval or
+opinion.
 
 ## Authorized workstreams — commute delay Phase 1 + dedicated hospital/mall-government Phase 1
 
@@ -38,7 +47,7 @@ shown in the citizen Inspector and is not read by opinion, approval, social-risk
 the focused tests cover the strict threshold, deterministic repeated reads, day changes and Level-3
 driving/Level-2 non-driving behavior. Workstream B carries the two specialties through `PLACE_ZONE`,
 map generation and `/api/tilemap`, keeps the underlying `bldg-c`/`zone-c` category, renders both with
-Canvas 2D procedural tier sprites, routes hospital coverage only to hospital tiles, and lets hospital
+Canvas 2D procedural tier drawings, routes hospital coverage only to hospital tiles, and lets hospital
 and government occupations select the dedicated destinations. A manual Playwright run placed both
 specialties successfully (HTTP 200) and the inspected Canvas 2D map showed their distinct dedicated
 building treatment; the Inspector showed a Level-3 driving citizen with `Commute: Normal`. The run
@@ -56,9 +65,6 @@ require a separate future checkpoint.
   mall-government use the new specialty procedural renderer. The current Playwright screenshot
   showed the active map and distinct specialty building treatment after both placements returned
   HTTP 200.
-- [x] Verify repository assets: `frontend/public/sprites/tiles.png` and `water.png` exist in `HEAD`
-  and are referenced by `isoRenderer.ts`, but are absent in the current dirty worktree; restore or
-  intentionally replace them before relying on the sprite-sheet/water path in a clean checkout.
 - [ ] Future visual check: inspect all three tiers for hospital and mall-government at normal and
   zoomed-out Canvas 2D scales, then record screenshots. This remains renderer verification only; no
   new tile/building categories are authorized.
@@ -83,10 +89,10 @@ require a separate future checkpoint.
 Ambient traffic vehicles and their erratic movement have been removed from the active renderer:
 `useMapRenderer.ts` no longer creates or advances the traffic runtime, while the citizen transit
 renderer remains active. The compatibility traffic handles remain inert so existing interaction
-code cannot create environmental vehicles. The Canvas 2D visual path still draws the existing
-terrain sprite sheet/water fallback through `isoRenderer.ts`, procedural residential/commercial/
-industrial tiers through `buildingSprites.ts`, and the existing Central/Parque silhouettes; no new
-tile or building types were introduced. The prior traffic-light visual verification is superseded
+code cannot create environmental vehicles. The active Canvas 2D visual path draws terrain, water,
+procedural residential/commercial/industrial tiers and the existing Central/Parque silhouettes directly
+through code; it does not depend on an external building-art pipeline. No new tile or building types were
+introduced. The prior traffic-light visual verification is superseded
 for ambient vehicles: signal/spacing behavior is no longer part of the active map, and the
 Playwright aid remains available only for future Canvas 2D/citizen rendering checks.
 
@@ -107,15 +113,13 @@ hold a vehicle at `0.72` progress on the incoming tile segment, before the inter
 and release it only when the existing axis signal is green. No simulation state, command or economy
 effect was added. Runtime and map-renderer files remain under 200 lines.
 
-**Asset inventory:** procedural residential, commercial and industrial tier 0/1/2 renderers are
-currently drawn by `isoRenderer.ts`; `drawPowerPlant()` and `drawPark()` are also wired and drawn in
-their existing Central/Parque slots. The coded vehicle palette variants are private car, taxi, bus,
-fire truck, police, ambulance and VIP; the restored runtime selects them deterministically across
-the existing ambient pool. `frontend/public/sprites/tiles.png` and `water.png` are present in
-`HEAD` and referenced by `isoRenderer.ts`, but are deleted in the current dirty worktree, so their
-live availability is a repository-state gap rather than a new asset implementation. The documented
-Phase 1 gap remains: hospitales, bomberos, ocio and telefonía use the shared developed-commercial
-placeholder for coverage/accent supply; no new building or tile types were added.
+**Canvas 2D inventory:** procedural residential, commercial and industrial tier 0/1/2 renderers
+are drawn by `isoRenderer.ts`; `drawPowerPlant()` and `drawPark()` are also wired in their existing
+Central/Parque slots. Vehicle variants are private car, taxi, bus, fire truck, police, ambulance and
+VIP, selected deterministically across the existing ambient pool. The active renderer is code-drawn
+and does not require external building-art files. The documented Phase 1 gap remains: hospitales,
+bomberos, ocio and telefonía use the shared developed-commercial placeholder for coverage/accent
+supply; no new building or tile types were added.
 
 **Verification:** Playwright is installed only in `frontend.devDependencies`; the manual,
 throwaway `frontend/scripts/verify/traffic-visual-check.ts` is not wired into tests, CI or builds.
@@ -164,45 +168,146 @@ already excluded by the frontend config. A short refactor pass kept the destinat
 existing classification/destination modules and exposed only a small transit progress diagnostic
 needed by the activation-preservation test.
 
-**Next scope checkpoint proposal — no implementation authorized:** prioritize (c), deepening citizen
-agency through the existing commute-delay backlog. It is the smallest causal extension and can remain
-citizen-subset-only, but it requires a precise threshold, affected personal field and explicit
-decision about whether the result is Inspector-only or feeds approval/social risk. Option (a), Phase
-2b service coverage affecting crime/social risk, would connect an already validated aggregate signal
-to Sprint 3 and improve emergency-service pressure modeling, but it carries the greatest risk of
-feedback loops and balance regressions. Option (b), Phase C treasury-funded infrastructure/employment
-feedback, would make the new treasury expenses strategically consequential and deepen the economic
-loop, but it risks negative-treasury spirals and requires a clear recourse/floor design first.
+**Next scope checkpoint proposal:** Phase 2b service coverage affecting crime/social risk is now
+authorized with explicit deterministic values and remains separate from implementation. The next unrelated
+checkpoint should prioritize either deepening citizen agency through the commute-delay backlog or Phase C
+infrastructure/employment feedback. Commute delay still requires an explicit affected personal field and a
+decision about whether it remains Inspector-only or feeds approval/social risk. Phase C still requires a
+clear recourse/floor design to avoid negative-treasury spirals.
 
-## Scope authorization — service coverage affects approval (Phase 2a) and social-risk (Phase 2b, future)
+## Scope authorization — service coverage affects approval (Phase 2a) and crime/social-risk (Phase 2b)
 
-Authorized by Rodrigo and formalized before implementation, in phases:
+Authorized by Rodrigo and formalized before implementation as two independent pathways:
 
-**Phase 2a — authorized:** low service coverage reduces district approval through the existing
-opinion/approval aggregation system (Sprint 5). Service weights are based on social criticality:
+**Phase 2a — authorized and implemented:** low service coverage reduces district approval through the
+existing opinion/approval aggregation system. Service weights are based on social criticality:
 
 - **Critical tier:** agua, electricidad, seguridad, hospitales, bomberos. Coverage shortages have
   a strong, meaningful approval impact because these are survival and safety services.
 - **Convenience tier:** internet, telefonía, residuos, ocio, gasolina, supermercado. Shortages
   nudge approval down mildly and must not dominate the result.
 
-The effect must be deterministic, reuse the existing approval/opinion pathway, and remain
-one-directional: coverage affects approval; approval must not reduce coverage or create a runaway
-feedback loop.
+The approval effect is deterministic and one-directional: coverage affects approval; approval does
+not reduce coverage or create a feedback loop.
 
-**Phase 2b — not yet authorized:** low coverage of seguridad, hospitales, or bomberos may later
-increase the existing social-risk/crime fields (Sprint 3), but only after a separate authorization
-checkpoint and Phase 2a validation in play. Convenience-tier services never affect crime.
+**Phase 2b — implemented:** low district coverage of seguridad, hospitales or bomberos increases the
+existing crime/social-risk value. Convenience-tier services never affect
+crime. The approved deterministic design values are:
 
-Constraints for both phases: no new randomness; reuse existing opinion/social-risk modules and
-fields; district-aggregate effect only; no citizen-level state changes; keep affected files at or
-under approximately 200 lines.
+- Coverage threshold: `0.8` for each of the three critical services.
+- Per-service normalized deficit: `clamp((0.8 - coverage) / 0.8, 0, 1)`.
+- Aggregate deficit: equal-weight mean of seguridad, hospitales and bomberos deficits.
+- Maximum added crime/social-risk penalty: `0.15`.
+- Final coverage penalty: `min(0.15, aggregateDeficit × 0.15)`.
 
-**Phase 2a status:** implemented in `src/simulation/opinion/index.ts`. The weekly opinion tick now
-derives a fresh tier-weighted coverage penalty using a 0.8 threshold and 0.30 maximum penalty,
-applies it after existing opinion channels, and removes only the prior coverage penalty before the
-next calculation so unchanged coverage remains stable. Phase 2b remains deferred: service coverage
-does not affect crime risk or social-risk fields.
+The `0.15` cap is intentionally lower than Phase 2a's `0.30` approval cap so missing services remain
+a meaningful crime pressure without overpowering the existing employment, trust, organization and
+policy signals. The calculation must run on the existing social-risk cadence, derive a fresh value
+from current district coverage and never accumulate the previous coverage penalty.
+
+The direction is strictly `coverage → crime/social-risk`. Crime/social-risk must never affect service
+coverage, placement approval, public approval or opinion. Reuse the existing social-risk/crime module
+and fields; district aggregate only; no citizen-level state changes, new randomness or new simulation
+entities. Keep every affected implementation file at or under approximately 200 lines and add focused
+tests independent from Phase 2a.
+
+**Phase 2a status:** implemented in `src/simulation/opinion/index.ts`. The weekly opinion tick derives
+a fresh tier-weighted coverage penalty using a `0.8` threshold and `0.30` maximum penalty, applies it
+after existing opinion channels, and removes only the prior coverage penalty before recalculation so
+unchanged coverage remains stable.
+
+**Phase 2b status:** implemented in `src/simulation/social-risk/index.ts`. Sprint 3 retains its existing
+district aggregate fields (`social.crimeRisk` and `social.atRisk`) and weekly recalculation cadence. The
+new deterministic effect reads only seguridad, hospitales and bomberos, applies the equal-weight `0.8`
+threshold deficit and adds a fresh penalty capped at `0.15` to the existing crime-risk result; it never
+accumulates across ticks. Convenience services are excluded. Focused tests verify the strict boundary,
+repeated-read determinism, high-coverage base case, weekly refresh and unchanged approval/opinion fields.
+No visual/live confirmation has been performed yet; browser verification of the district crime display
+remains pending.
+
+**Phase 2b district-panel status:** implemented in `frontend/src/components/Dashboard.tsx`. The Distritos
+tab now displays `Riesgo social` beside Aprobación and Ingreso promedio, formatted as a percentage from
+the existing `district.social.crimeRisk` value in `/api/state`. No simulation logic, state, command or
+endpoint was added. Frontend TypeScript verification passes with the local compiler; live visual
+confirmation comparing low and high public-safety coverage remains pending because this environment
+cannot bind the development backend port (`EPERM` on `0.0.0.0:3000`).
+
+## Investigation — Day 0 crisis tint
+
+**Finding:** `DistrictSocial.atRisk` is initialized as `false` in the scenario content, but that value is
+not authoritative after reset. `ScenarioRunner` constructs `SocialRiskLoop` immediately, and its constructor
+calls `recalculate()` before Day 0 is exposed. That method computes `district.social.crimeRisk` and sets
+`atRisk = crimeRisk > 0.70`. The renderer then passes that district-wide boolean to `drawCrisisTint` for
+every tile owned by the district.
+
+For a fresh `ciudad_dividida` reset with seed `1` and the default scenario values, the observed Day 0
+state is: Centro `crimeRisk=0.155` / `atRisk=false`, Periferia `0.839` / `true`, and Zona Industrial
+`0.210` / `false`; city approval remains `0.90` and treasury `$100,000`. Thus the apparent widespread
+red is Periferia's district-wide tint, not every district being at risk.
+
+**Root cause classification:** this is primarily an intended initial-condition outcome, not a boolean
+initialization bug. Periferia starts with `unemployment=0.70`, institutional trust `0.10`, water and
+electricity coverage approximately `0.094` and `0.125`, and safety `0.60`; hospitales and bomberos start
+at zero coverage. Sprint 3's pre-existing water/electricity deficit and socioeconomic formula already
+produce substantial risk. Phase 2b then adds its authorized public-safety coverage penalty (`0.1125`
+for this exact service mix), increasing the margin above the existing `0.70` threshold but not causing
+the crossing: Sprint 3 alone is already `0.7264`. Centro and Zona Industrial also receive the Phase 2b
+penalty but remain below the threshold. No crime/social-risk code writes back into coverage, approval or
+opinion.
+
+**Next steps proposed:** keep Phase 2b unchanged for now and decide separately whether the scenario's
+Day 0 infrastructure/trust/unemployment values are intended to represent an already distressed city,
+or whether the presentation should distinguish baseline underdevelopment from an active crisis. Any
+threshold, starting-state, tint-scope or grace-period change should be authorized as a separate design
+decision and tested against the current Sprint 3 and Phase 2b regressions.
+
+## Investigation — Periferia Day 0 risk breakdown
+
+**Scratch calculation, seed 1 / Day 0:** Periferia has one household cohort, so its weighted income
+variance/inequality term is `0`. The existing Sprint 3 raw-risk terms are:
+
+- unemployment: `0.70² = +0.4900`;
+- institutional trust: `0.10`, therefore `-0.1000` in the raw formula;
+- pre-existing water/electricity coverage deficit: `1 - min(0.09375, 0.125) = +0.90625`;
+- raw Sprint 3 risk before exponentiation: `0.4900 + 0 + 0.90625 - 0.1000 = 1.29625`;
+- Sprint 3 transformed risk without Phase 2b: `1 - exp(-1.29625) = 0.726444`.
+
+Phase 2b reads seguridad `0.60`, hospitales `0`, and bomberos `0`. Their normalized deficits are
+`0.25`, `1`, and `1`; the equal-weight mean is `0.75`, producing a specific Phase 2b addition of
+`0.75 × 0.15 = 0.112500` (below the `0.15` cap). The final value is therefore
+`0.726444 + 0.112500 = 0.838944`, and `atRisk` is true because it exceeds `0.70`.
+
+**Counterfactual:** Periferia was already above the threshold without Phase 2b (`0.726444 > 0.70`).
+Phase 2b increases the margin but does not cause the threshold crossing. The same Day 0 breakdown for
+the comparison districts is:
+
+| District | Unemployment term | Trust term | Sprint 3 coverage deficit | Risk without Phase 2b | Phase 2b addition | Final risk | atRisk |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Centro | +0.0064 | -0.6500 | +0.6875 | 0.042950 | +0.112500 | 0.155450 | false |
+| Periferia | +0.4900 | -0.1000 | +0.90625 | 0.726444 | +0.112500 | 0.838944 | true |
+| Zona Industrial | +0.0100 | -0.5500 | +0.642857 | 0.097744 | +0.112500 | 0.210244 | false |
+
+All three districts start with seguridad `0.60`, hospitales `0`, and bomberos `0`, hence the same
+Phase 2b addition. The difference is driven by the pre-existing Sprint 3 socioeconomic and utility
+inputs, especially Periferia's unemployment and institutional trust.
+
+**Seed/size check:** Periferia produced the same values for seeds `1`, `2`, `7`, and `42` at sizes
+`tiny`, `big`, and `enormous`: risk without Phase 2b `0.726444`, Phase 2b addition `0.112500`, final
+`0.838944`, `atRisk=true`. This is consistent across seeds because seeded randomness changes the map
+layout, while the scenario's district and household definitions supply these risk inputs. Tiny maps
+also emit unrelated minimum-residential-tile warnings for some seeds.
+
+**Design-intent check:** `src/content/scenarios/ciudad_dividida.ts` explicitly labels Periferia with
+the notes `"Crecimiento rápido"` and `"Cobertura inicial baja"`, and defines population `1200`, income
+`1300`, trust/institutional trust `0.10`, unemployment `0.70`, and reduced water/electricity capacity.
+There is no separate low-income archetype or comment that changes the crime threshold, but the starting
+values clearly encode a disadvantaged/low-coverage district.
+
+**Current `atRisk` consumers:** Sprint 3's organizations loop uses it to gate district organization
+behavior; the opinion loop uses transitions to emit `crime`/`crime_resolved` footprints; and rendering
+uses it for the red crisis tint (the active Canvas renderer and legacy rendering paths). No code found
+uses it to write or directly alter approval, coverage, migration, or citizen state. This remains a
+diagnostic-only entry; no calculation or threshold was changed.
 
 ## Scope authorization — Phase B: treasury expenses + commercial/industrial revenue integration
 
@@ -402,49 +507,47 @@ cover each city size, save/load, minimap navigation and traffic on a freshly sta
 
 **Sprint 20 — Procedural pixel buildings with simulation-driven growth tiers**
 
-Building tiles now use code-drawn pixel art in `frontend/src/lib/buildingSprites.ts` rather than
-static `isometric-city` building sprites. Residential buildings use house roofs, commercial
+Building tiles now use code-drawn Canvas 2D pixel art through dedicated procedural renderer modules.
+Residential buildings use house roofs, commercial
 buildings use storefront blocks, and industrial buildings use factory blocks and smokestacks.
 Each zone has three visual tiers: undeveloped lot, small building, and developed building.
 Central power plants now use a blocky substation/power-line silhouette, and Parque tiles use
 procedural grass, paths, and trees. Both remain static infrastructure visuals because the current
 game state has no separate power-output or park-development tier.
 The first-pass tier formula uses district population, average income, and approval; it is applied
-in the frontend from existing `/api/state` data and does not mutate simulation state. Terrain and
-decorative assets remain credited to `isometric-city` as before.
+in the frontend from existing `/api/state` data and does not mutate simulation state. Terrain and decorative building visuals are generated directly in Canvas 2D. The adapted isometric
+coordinate approach remains credited separately where applicable.
 
 Follow-up fix: procedural building, power-plant and park renderers now paint the full terrain
 diamond before their footprint. No opaque black base or building shadow is drawn; all nine
 zone/tier combinations plus Central and Parque therefore remain seated on terrain instead of
 revealing the canvas background.
 
-**Sprint 19 — Detailed sprites, render optimization, and traffic/inspection fixes**
+**Sprint 19 — Canvas 2D render optimization and traffic/inspection fixes**
 
-Sprint 19 restores the detailed `isometric-city` building art as the default renderer and
-keeps performance work in the renderer rather than reducing visual fidelity.
+The former external-art rendering experiment is superseded. The active renderer uses procedural Canvas 2D
+for terrain, buildings, infrastructure and specialty structures, keeping visual creation simple for coding
+agents and avoiding large decoded image dependencies.
 
 Completed:
 
-- Detailed residential, commercial, industrial and park sprites are decoded once, chroma-keyed
-  once, and copied into cached per-sprite canvases before rendering.
 - Isometric tiles are culled against the canvas viewport with a margin; the renderer reports
-  `[render-benchmark]` samples containing FPS, average frame time, visible tile count, total tile
-  count and zoom for before/after verification in the browser console.
-- A low-zoom fallback remains only below `0.4`; normal zoom levels use detailed sprites.
-- Inspection activation now returns the affected citizen in the `/api/inspect` response and logs
-  the resulting level/cause on the backend, making the Activar/Desactivar chain observable.
+  `[render-benchmark]` samples containing FPS, average frame time, visible tile count, total tile count
+  and zoom for before/after verification in the browser console.
+- Normal and low zoom use the same procedural drawing system with scale-aware detail reduction.
+- Inspection activation returns the affected citizen in the `/api/inspect` response and logs the
+  resulting level/cause on the backend, making the Activar/Desactivar chain observable.
 - Traffic vehicles stop before intersection nodes while the shared signal is red.
-- The former red chroma-key fringe pass was removed; it could erase or tint legitimate sprite
-  pixels and was the source of the reported red shadow artifact.
+- Legacy chroma-key and external-art cleanup paths are no longer part of the active renderer.
 
-Verification note: the frontend compiled successfully during `next build`, but the build worker
-exited before completing its final TypeScript phase in this constrained environment. A targeted
-TypeScript scan reported no errors in `isoRenderer.ts`, `CanvasMap.tsx`, `trafficSystem.ts`, or
-`Dashboard.tsx`. Live API verification was blocked because the sandbox disallows binding port 3000;
-the browser console and backend log evidence are available when running `./start.sh` locally.
+Verification note: the frontend compiled successfully during `next build`, but the build worker exited
+before completing its final TypeScript phase in this constrained environment. A targeted TypeScript scan
+reported no errors in `isoRenderer.ts`, `CanvasMap.tsx`, `trafficSystem.ts`, or `Dashboard.tsx`. Live API
+verification was blocked because the sandbox disallows binding port 3000; browser console and backend log
+evidence remain available when running `./start.sh` locally.
 
-Road polish remains unchanged because no specific road defect was provided; it needs Rodri's
-concrete visual feedback before further changes.
+Road polish remains unchanged because no specific road defect was provided; it needs Rodri's concrete
+visual feedback before further changes.
 
 **Sprint 18 follow-up — Citizen data, purposeful destinations, and UI inspection**
 
@@ -463,7 +566,7 @@ Completed:
   approval. Central power plants and Parque tiles also use procedural silhouettes and decoration.
 - Building renderers paint the complete terrain diamond before the footprint, eliminating the
   solid black square/base artifact across all nine zone-tier combinations, Central and Parque.
-- The remaining isometric sprite-sheet path removes red/pink chroma-key bleed, anchors sprites to
+- The active procedural Canvas 2D path draws terrain and buildings directly, anchors structures to
   tile bottoms, and renders roads with distinct asphalt plus adjacency-aware markings.
 - The map generator, frontend canvas, minimap and traffic system share the live city dimensions
   selected from the main menu rather than relying on fixed constants.
@@ -524,11 +627,10 @@ Known simplification: occupations map to industrial work for production/manufact
 
 Completed in this sprint:
 - **Coordinate math** (`frontend/src/lib/isoMath.ts`): Implemented `gridToIso` and `isoToGrid` transforms adapted from `isometric-city`'s `gridToScreen`/`screenToGrid` (MIT). Standard 2:1 isometric ratio — tile diamond 64 × 32 px.
-- **Isometric renderer** (`frontend/src/lib/isoRenderer.ts`): Sprite-based tile drawing using the `sprites_red_water_new.png` sprite sheet (copied from `isometric-city/public/assets/`, MIT). Implements diamond fills for terrain (grass, road, sand, tree, bridge), animated-water fallback via `water.png`, building/zone sprites from the 5×6 sprite sheet, and a red tint overlay for districts in crisis.
+- **Isometric renderer** (`frontend/src/lib/isoRenderer.ts`): Canvas 2D drawing for terrain, water, roads, trees, bridges, buildings and district-crisis overlays. Visual elements are generated procedurally in code rather than loaded from external building-art files.
 - **Depth-sorting** (painter's algorithm in `CanvasMap.tsx`): Tiles are rendered back-to-front ordered by `col + row` sum, ensuring foreground tiles correctly overlap background tiles in isometric perspective.
 - **`CanvasMap.tsx`** fully rewritten (~150 lines): Camera pan/zoom preserved, mouse click now uses `isoToGrid()` for accurate screen→grid hit-testing, hover highlight draws an isometric diamond outline.
-- **Assets copied**: `frontend/public/sprites/tiles.png` (8.3 MB) and `frontend/public/sprites/water.png` (0.9 MB), both served correctly by Next.js static.
-- **`THIRD_PARTY_LICENSES.md`** updated to explicitly list the sprite files sourced from `isometric-city` and the adapted coordinate math.
+- **`THIRD_PARTY_LICENSES.md`** retains attribution for the adapted coordinate math and architectural references only.
 - All 5 backend tests pass — no simulation logic was touched.
 
 **Sprint 15 — Full Spanish localization (UI text)**
@@ -722,19 +824,17 @@ Authorized by Rodrigo before implementation, with phased verification:
 - Implementation must reuse routine/, `destinations.ts`, `classification.ts`, EconomyLoop, ZoningLoop and the existing
   proximity/informal-income mechanisms, with each phase independently tested before the next.
 
-## Scope authorization — service coverage with citizen impact
+## Scope authorization — service coverage expansion
 
-Authorized by Rodrigo before implementation, with a checkpoint between phases:
+Authorized by Rodrigo before implementation and extended through the separate Phase 2a/2b authorization above:
 
-- Phase 1 may extend the existing `UtilityState`/district-panel coverage pattern beyond Agua, Electricidad,
-  Residuos, Seguridad and Internet to services such as gasolina, supermercado, hospitales, bomberos, ocio and
-  telefonía, plus other reasonable service categories.
-- Phase 1 is display/coverage-only: reuse the existing district services structures, calculations and coverage bars;
-  it adds no citizen-level or district-level consequences.
-- Phase 2 is not authorized by this entry. Connecting low coverage to approval, social risk/crime or opinion requires
-  a separate scope checkpoint after Phase 1 is validated in play.
-- No new tile/building types or randomness are authorized; existing gas-station/supermarket visual accents remain
-  the available spatial presentation.
+- Phase 1 extends the existing `UtilityState`/district-panel coverage pattern beyond Agua, Electricidad,
+  Residuos, Seguridad and Internet to gasolina, supermercado, hospitales, bomberos, ocio and telefonía.
+- Phase 1 reuses existing district service structures, calculations and coverage bars.
+- Phase 2a may affect district approval, and Phase 2b may affect district crime/social-risk, only through the
+  explicit aggregate formulas and one-directional boundaries documented above.
+- No citizen-level service consequences, new randomness or new simulation entities are authorized.
+- Existing gas-station/supermarket procedural Canvas 2D accents remain the spatial presentation.
 
 **Phase A status:** implemented. `CITIZEN_CONSUMPTION` is validated server-side with a transient
 cohort/day/activity cap; shopping and refueling deduct bounded disposable income and credit the
@@ -756,7 +856,7 @@ distribution otherwise. Small maps use every eligible plot and emit a developmen
 be reached; grass fallback remains for old saves and other edge cases. Same-seed, multi-seed, dominance and
 small-map degradation tests pass.
 
-Do not add full-population agents, Nemotron runtime calls, social graphs, generative narrative, new scenarios, elections, pollution or new causal power for citizens unless a future sprint explicitly authorizes it.
+Do not add full-population agents, Nemotron runtime calls, social graphs, generative narrative, new scenarios, elections, pollution or new causal power for citizens unless a future scope authorization explicitly permits it.
 
 Likely next decisions are: connecting the frontend building mechanics directly to the backend simulation (converting map edits into simulation state modifiers), or deepening citizen agency.
 The cohort-first simulation model and ethical dataset boundary remain hard constraints.

@@ -4,9 +4,29 @@ import type { HouseholdCohort } from "../households/index.ts";
 import type { CityState, District } from "../models.ts";
 import { clamp, clampRate, weightedAverage } from "../formulas/economy.ts";
 
+export const CRIME_COVERAGE_THRESHOLD = 0.8;
+export const CRIME_COVERAGE_PENALTY_CAP = 0.15;
+const PUBLIC_SAFETY_SERVICES = ["safety", "hospitales", "bomberos"] as const;
+
 export type DistrictCohortMap = Record<string, HouseholdCohort[]>;
 export type InvestSocialProgramCommand = { type: "INVEST_SOCIAL_PROGRAM"; district: string; amount: number };
 export type SetAuditLevelCommand = { type: "SET_AUDIT_LEVEL"; value: number };
+
+function serviceCoverage(service: unknown): number {
+  return typeof service === "number" ? service : (service as { coverage?: number } | undefined)?.coverage ?? 0;
+}
+
+function coverageDeficit(coverage: number): number {
+  return Math.max(0, CRIME_COVERAGE_THRESHOLD - coverage) / CRIME_COVERAGE_THRESHOLD;
+}
+
+/** District-wide, deterministic pressure from public-safety service shortages. */
+export function serviceCoverageCrimePenalty(district: District): number {
+  const aggregateDeficit = PUBLIC_SAFETY_SERVICES
+    .map(service => coverageDeficit(serviceCoverage(district.services[service])))
+    .reduce((sum, deficit) => sum + deficit, 0) / PUBLIC_SAFETY_SERVICES.length;
+  return Math.min(CRIME_COVERAGE_PENALTY_CAP, aggregateDeficit * CRIME_COVERAGE_PENALTY_CAP);
+}
 
 export function calculateCrimeRisk(district: District, cohorts: HouseholdCohort[]): number {
   const unemployment = weightedAverage(cohorts.map(cohort => ({ value: cohort.unemployment, weight: cohort.size })));
@@ -16,7 +36,8 @@ export function calculateCrimeRisk(district: District, cohorts: HouseholdCohort[
   const serviceDeficit = 1 - Math.min(district.services.water.coverage, district.services.electricity.coverage);
   // TODO: add education, cohesion and travel-time inputs when those systems exist.
   const rawRisk = unemployment ** 2 + inequality + serviceDeficit - district.social.institutionalTrust;
-  return Math.min(1, Math.max(0, 1 - Math.exp(-Math.max(0, rawRisk))));
+  const baseRisk = Math.min(1, Math.max(0, 1 - Math.exp(-Math.max(0, rawRisk))));
+  return Math.min(1, baseRisk + serviceCoverageCrimePenalty(district));
 }
 
 export function calculateCorruptionRisk(treasury: number, auditLevel: number): number {

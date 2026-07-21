@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MAP_COLS, MAP_ROWS } from '../lib/constants';
 
+export type SelectedSpecialty = 'hospital' | 'mall-government' | undefined;
+
 export function useGameState() {
   const [simState, setSimState] = useState<any>(null);
   const [currentTool, setCurrentTool] = useState('cursor');
+  const [selectedSpecialty, setSelectedSpecialty] = useState<SelectedSpecialty>(undefined);
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const tileMapRef = useRef<any[][]>([]);
   const [mapDimensions, setMapDimensions] = useState({ cols: MAP_COLS, rows: MAP_ROWS });
@@ -25,7 +28,7 @@ export function useGameState() {
       const newMap: any[][] = Array.from({ length: rows }, () => Array(cols).fill(null));
       for (const t of tilesJson.tiles) {
         if (t.row >= 0 && t.row < rows && t.col >= 0 && t.col < cols) {
-          newMap[t.row][t.col] = { type: t.type, owner: t.owner, level: t.level ?? 0 };
+          newMap[t.row][t.col] = { type: t.type, owner: t.owner, level: t.level ?? 0, specialty: t.specialty };
         }
       }
       tileMapRef.current = newMap;
@@ -44,6 +47,8 @@ export function useGameState() {
     simState,
     currentTool,
     setCurrentTool,
+    selectedSpecialty,
+    setSelectedSpecialty,
     tileMapRef,
     fetchState: fetchAll,
     isMenuOpen,

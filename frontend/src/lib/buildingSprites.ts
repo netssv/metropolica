@@ -57,6 +57,23 @@ function silhouette({ ctx, px, py, zoom }: DrawArgs, type: 'r' | 'c' | 'i', tier
   if (tier > 0) { ctx.strokeStyle = colors[tier]; ctx.lineWidth = Math.max(1, zoom); ctx.stroke(path); }
 }
 
+function specialtySilhouette({ ctx, px, py, zoom }: DrawArgs, tier: Tier, kind: 'hospital' | 'mall-government') {
+  const w = ISO_TILE_W * zoom, h = ISO_TILE_H * zoom, cx = px + w / 2, base = py + h;
+  const baseColor = kind === 'hospital' ? '#789b95' : '#3c8193';
+  const accent = kind === 'hospital' ? '#d9364b' : '#f0c85a';
+  const height = tier === 0 ? 0 : (tier === 1 ? 7 : 12) * zoom;
+  ctx.fillStyle = baseColor;
+  ctx.beginPath(); ctx.moveTo(cx, py); ctx.lineTo(px + w, py + h / 2); ctx.lineTo(cx, base); ctx.lineTo(px, py + h / 2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = accent;
+  ctx.beginPath(); ctx.moveTo(cx, base - h * .55 - height); ctx.lineTo(cx + w * .18, base - h * .35 - height); ctx.lineTo(cx, base - h * .2 - height); ctx.lineTo(cx - w * .18, base - h * .35 - height); ctx.closePath(); ctx.fill();
+  if (kind === 'hospital') {
+    ctx.fillRect(cx - Math.max(1, 1.5 * zoom), base - h * .42 - height, Math.max(2, 3 * zoom), Math.max(2, 6 * zoom));
+    ctx.fillRect(cx - Math.max(2, 3 * zoom), base - h * .33 - height, Math.max(4, 6 * zoom), Math.max(2, 2 * zoom));
+  } else {
+    ctx.fillRect(cx - Math.max(3, 4 * zoom), base - h * .38 - height, Math.max(6, 8 * zoom), Math.max(2, 2 * zoom));
+  }
+}
+
 function lot({ ctx, px, py, zoom }: DrawArgs, color: string) {
   const { cx, base, hw, hh } = footprint({ ctx, px, py, zoom }, '#263e35', color);
   ctx.fillStyle = color; ctx.fillRect(cx - 2 * zoom, base - hh, 4 * zoom, 2 * zoom);
@@ -118,23 +135,11 @@ function factory(args: DrawArgs, tier: Tier) {
 
 function specialtyBuilding(args: DrawArgs, tier: Tier, kind: 'hospital' | 'mall-government') {
   const { ctx, zoom } = args;
-  if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'c', tier);
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return specialtySilhouette(args, tier, kind);
   const base = kind === 'hospital' ? '#d8e6e1' : '#55a9bd';
   const accent = kind === 'hospital' ? '#d9364b' : '#f0c85a';
   const { cx, base: ground, hw, hh } = footprint(args, base, accent);
-  const height = (tier === 0 ? 0 : tier === 1 ? 15 : 30) * zoom;
-  if (!height) {
-    ctx.fillStyle = accent;
-    if (kind === 'hospital') {
-      ctx.fillRect(cx - 2 * zoom, ground - hh - 7 * zoom, 4 * zoom, 12 * zoom);
-      ctx.fillRect(cx - 6 * zoom, ground - hh - 3 * zoom, 12 * zoom, 4 * zoom);
-    } else {
-      ctx.fillRect(cx - 7 * zoom, ground - hh - 5 * zoom, 14 * zoom, 3 * zoom);
-      ctx.fillRect(cx - 4 * zoom, ground - hh - 8 * zoom, 3 * zoom, 6 * zoom);
-      ctx.fillRect(cx + 1 * zoom, ground - hh - 8 * zoom, 3 * zoom, 6 * zoom);
-    }
-    return;
-  }
+  const height = (tier === 0 ? 8 : tier === 1 ? 15 : 30) * zoom;
   ctx.fillStyle = base; ctx.fillRect(cx - hw * .72, ground - hh - height, hw * 1.44, height);
   ctx.fillStyle = accent; ctx.fillRect(cx - hw * .72, ground - hh - height, hw * 1.44, 4 * zoom);
   ctx.fillStyle = kind === 'hospital' ? '#f7f3e8' : '#183b57';

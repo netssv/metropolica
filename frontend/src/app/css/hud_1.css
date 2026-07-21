@@ -160,6 +160,7 @@
 .tool-btn.tool-danger { color: var(--text-muted); }
 .tool-btn.tool-danger:hover  { background: rgba(239,68,68,0.1);  border-color: rgba(239,68,68,0.3); color: #fca5a5; }
 .tool-btn.tool-danger.active { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.5); color: var(--red); }
+.tool-btn.tool-sub-btn { margin-left: 12px; padding-top: 3px; padding-bottom: 3px; font-size: 0.9em; }
 
 .tool-ico  { font-size: 1rem; line-height: 1; flex-shrink: 0; }
 .tool-name { font-size: 0.72rem; font-weight: 600; flex: 1; }
