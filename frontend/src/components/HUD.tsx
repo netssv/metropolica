@@ -14,12 +14,16 @@ export default function HUD() {
   const speed = simState?.speed ?? 1;
   const [displayMinutes, setDisplayMinutes] = useState(0);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [timeMenuOpen, setTimeMenuOpen] = useState(false);
   const anchorRef = useRef({ minutes: 0, time: 0, speed: 1 });
   const serverMinutes = (simState?.day ?? 0) * 1440 + (simState?.hour ?? 0) * 60 + (simState?.minute ?? 0);
   useEffect(() => {
     anchorRef.current = { minutes: serverMinutes, time: performance.now(), speed };
     setDisplayMinutes(serverMinutes);
   }, [serverMinutes, speed]);
+  useEffect(() => {
+    document.body.dataset.metropolicaNight = hour < 6 || hour >= 19 ? 'true' : 'false';
+  }, [hour]);
   useEffect(() => {
     let frame = 0;
     const animate = (time: number) => {
@@ -44,6 +48,21 @@ export default function HUD() {
     try { await fetch('/api/advance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days }) }); await fetchState(); }
     finally { setPendingAction(null); }
   };
+  const advanceHours = async (hours: number) => {
+    setPendingAction(`advance-hours-${hours}`);
+    try { await fetch('/api/advance-hours', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hours }) }); await fetchState(); }
+    finally { setPendingAction(null); }
+  };
+  const jumpTo = (target: 'day' | 'night') => {
+    const current = shownHour + shownClockMinute / 60;
+    const wakeHours = Object.values(simState?.citizens ?? {}).flatMap((district: any) =>
+      (district as any[]).flatMap(citizen => (citizen.routine ?? [])
+        .filter((block: any) => block.activity === 'sueño' && block.location === 'home')
+        .map((block: any) => block.endHour)));
+    const targetHour = target === 'day' ? (wakeHours.length ? Math.min(...wakeHours) : 7) : 20;
+    const hours = (targetHour - current + 24) % 24 || 24;
+    void advanceHours(hours);
+  };
   const openDashboard = (tab: 'districts' | 'opinion' | 'citizens') => {
     window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: tab }));
   };
@@ -52,10 +71,19 @@ export default function HUD() {
     <header id="hud-top">
       <button id="city-brand" onClick={() => setIsMenuOpen(true)} title="Abrir menú principal" aria-label="Abrir menú principal">🏙️ <span>Metropolica</span></button>
       <div className="hud-sep"></div>
-      <button className="hud-stat hud-stat-button" onClick={() => openDashboard('districts')} title="Abrir reloj y controles de tiempo">
+      <div className="hud-time-control">
+      <button className="hud-stat hud-stat-button" onClick={() => setTimeMenuOpen(value => !value)} title="Abrir controles de tiempo">
         <span className="hud-label">HORA</span>
         <span className="hud-value">{String(shownHour).padStart(2, '0')}:{String(shownClockMinute).padStart(2, '0')}</span>
       </button>
+      {timeMenuOpen && <div className="time-popover" role="dialog" aria-label="Controles de tiempo">
+        <div className="time-popover-title">Control del tiempo</div>
+        <button onClick={() => void advanceHours(1)} disabled={pendingAction !== null}>+1 hora</button>
+        <button onClick={() => void advanceHours(6)} disabled={pendingAction !== null}>+6 horas</button>
+        <button onClick={() => jumpTo('day')} disabled={pendingAction !== null}>☀️ Hora de despertar</button>
+        <button onClick={() => jumpTo('night')} disabled={pendingAction !== null}>🌙 Ir a la noche</button>
+      </div>}
+      </div>
       <button className="hud-stat hud-stat-button" onClick={() => openDashboard('districts')} title="Abrir información de la ciudad">
         <span className="hud-label">DÍA</span>
         <span className="hud-value">{shownDay}</span>

@@ -2,383 +2,52 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Metropolica — Preview tiles</title>
-  <style>
-    body { background: #0a0a14; display: flex; gap: 32px; padding: 40px;
-           font-family: monospace; color: #ccc; align-items: flex-start; flex-wrap: wrap; }
-    .tile-box { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-    canvas { image-rendering: pixelated; border: 1px solid #333; border-radius: 4px; }
-    .label { font-size: 11px; color: #888; }
-    h2 { color: #fff; font-size: 13px; margin: 0 0 4px; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Metropolica — Catálogo interactivo de assets visuales Canvas 2D puro.">
+  <title>Metropolica — Catálogo de Assets Visuales Canvas 2D</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/preview.css">
 </head>
 <body>
 
-<script>
-// Helper — the same clamp used in game
-function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+  <!-- HEADER -->
+  <header class="preview-hdr">
+    <div class="hdr-title">
+      <h1>🏙️ Metropolica — Catálogo de Assets Canvas 2D</h1>
+      <p id="catalog-count">Cargando assets...</p>
+    </div>
+    <div class="hdr-controls">
+      <input type="search" id="search-input" class="search-input" placeholder="🔍 Buscar asset..." aria-label="Buscar asset">
+      <button class="ctrl-btn" id="btn-night">🌙 Modo Noche</button>
+      <button class="ctrl-btn" id="btn-pause">⏸ Pausar</button>
+    </div>
+  </header>
 
-// Draw all 14 + 4 new tiles at 3 sizes
-const SIZES = [24, 48, 96];
+  <!-- CATEGORY FILTER NAV -->
+  <nav class="cat-filters" aria-label="Filtros de categoría">
+    <button class="cat-chip active" data-cat="todos">Todos</button>
+    <button class="cat-chip" data-cat="terreno">Terreno</button>
+    <button class="cat-chip" data-cat="zonas">Zonas</button>
+    <button class="cat-chip" data-cat="edificios">Edificios</button>
+    <button class="cat-chip" data-cat="servicios">Servicios</button>
+    <button class="cat-chip" data-cat="civicos">Cívicos ★</button>
+    <button class="cat-chip" data-cat="vehiculos">Vehículos 🚗</button>
+  </nav>
 
-// T constants
-const T = {
-  GRASS:'grass', WATER:'water', ROAD:'road', BRIDGE:'bridge',
-  TREE:'tree', PARK:'park', SAND:'sand',
-  ZONE_R:'zone-r', ZONE_C:'zone-c', ZONE_I:'zone-i',
-  BLDG_R:'bldg-r', BLDG_C:'bldg-c', BLDG_I:'bldg-i',
-  POWER:'power', POLICE:'police', FIRE:'fire', HOSPITAL:'hospital', SCHOOL:'school',
-};
+  <!-- TILES GRID -->
+  <main class="tiles-grid" id="grid-container"></main>
 
-function drawTile(ctx, tile, wx, wy, ts, t) {
-  switch (tile.type) {
-
-    case T.GRASS:
-      ctx.fillStyle = '#2d6a2d'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#255225';
-      ctx.fillRect(wx + ts*0.15, wy + ts*0.2, ts*0.12, ts*0.1);
-      ctx.fillRect(wx + ts*0.6,  wy + ts*0.55, ts*0.1,  ts*0.1);
-      break;
-
-    case T.WATER: {
-      const w = 0.5 + 0.5 * Math.sin(t * 1.8 + wx * 0.04 + wy * 0.03);
-      ctx.fillStyle = `hsl(210,70%,${22 + w*5}%)`;
-      ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = 'rgba(255,255,255,0.07)';
-      ctx.fillRect(wx + ts*0.05, wy + ts*(0.3 + 0.1*Math.sin(t*2+wx*0.05)), ts*0.7, ts*0.07);
-      break;
-    }
-
-    case T.ROAD:
-      ctx.fillStyle = '#3a3a48'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#4a4a5a';
-      ctx.fillRect(wx, wy, ts, 2); ctx.fillRect(wx, wy+ts-2, ts, 2);
-      ctx.fillStyle = '#f1c232';
-      const dh = ts*0.1, gap = ts*0.35;
-      ctx.fillRect(wx + ts*0.46, wy + ts*0.05, ts*0.08, dh);
-      ctx.fillRect(wx + ts*0.46, wy + ts*0.05 + gap, ts*0.08, dh);
-      ctx.fillRect(wx + ts*0.46, wy + ts*0.05 + gap*2, ts*0.08, dh);
-      break;
-
-    case T.BRIDGE:
-      ctx.fillStyle = '#1e4d8c'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#5a4a38';
-      ctx.fillRect(wx + ts*0.05, wy + ts*0.2, ts*0.9, ts*0.6);
-      ctx.fillStyle = '#6b5740';
-      ctx.fillRect(wx + ts*0.12, wy + ts*0.28, ts*0.76, ts*0.44);
-      ctx.fillStyle = '#888';
-      for (let i = 0; i < 4; i++) {
-        ctx.fillRect(wx + ts*(0.14 + i*0.22), wy + ts*0.22, ts*0.05, ts*0.1);
-        ctx.fillRect(wx + ts*(0.14 + i*0.22), wy + ts*0.68, ts*0.05, ts*0.1);
-      }
-      break;
-
-    case T.TREE:
-      ctx.fillStyle = '#1a4d1a'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#5c3a1e';
-      ctx.fillRect(wx + ts*0.42, wy + ts*0.58, ts*0.16, ts*0.38);
-      ctx.fillStyle = '#0d3a0d';
-      ctx.beginPath(); ctx.arc(wx+ts/2, wy+ts*0.42, ts*0.38, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#145214';
-      ctx.beginPath(); ctx.arc(wx+ts*0.38, wy+ts*0.32, ts*0.22, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(wx+ts*0.62, wy+ts*0.35, ts*0.18, 0, Math.PI*2); ctx.fill();
-      break;
-
-    case T.PARK:
-      ctx.fillStyle = '#1e7a3e'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#c9a96a';
-      ctx.fillRect(wx + ts*0.42, wy, ts*0.16, ts);
-      ctx.fillRect(wx, wy + ts*0.42, ts, ts*0.16);
-      ctx.fillStyle = '#0a4a0a';
-      ctx.beginPath(); ctx.arc(wx+ts*0.22, wy+ts*0.22, ts*0.14, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(wx+ts*0.78, wy+ts*0.78, ts*0.14, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#8b6914';
-      ctx.fillRect(wx + ts*0.6, wy + ts*0.25, ts*0.25, ts*0.07);
-      break;
-
-    case T.SAND:
-      ctx.fillStyle = '#c4a86a'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#d4b87a';
-      ctx.fillRect(wx+ts*0.1, wy+ts*0.2, ts*0.15, ts*0.1);
-      ctx.fillRect(wx+ts*0.55, wy+ts*0.6, ts*0.12, ts*0.08);
-      break;
-
-    case T.ZONE_R:
-      ctx.fillStyle = '#2d6a2d'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.strokeStyle = '#86efac'; ctx.lineWidth = 1.5;
-      ctx.strokeRect(wx+1.5, wy+1.5, ts-3, ts-3);
-      if (ts >= 16) {
-        ctx.fillStyle = '#86efac';
-        ctx.font = `bold ${Math.max(8, ts*0.38)}px monospace`;
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('R', wx+ts/2, wy+ts/2);
-        ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-      }
-      break;
-
-    case T.ZONE_C:
-      ctx.fillStyle = '#1a3a6a'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 1.5;
-      ctx.strokeRect(wx+1.5, wy+1.5, ts-3, ts-3);
-      if (ts >= 16) {
-        ctx.fillStyle = '#93c5fd';
-        ctx.font = `bold ${Math.max(8, ts*0.38)}px monospace`;
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('C', wx+ts/2, wy+ts/2);
-        ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-      }
-      break;
-
-    case T.ZONE_I:
-      ctx.fillStyle = '#5a3a0a'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.strokeStyle = '#fcd34d'; ctx.lineWidth = 1.5;
-      ctx.strokeRect(wx+1.5, wy+1.5, ts-3, ts-3);
-      if (ts >= 16) {
-        ctx.fillStyle = '#fcd34d';
-        ctx.font = `bold ${Math.max(8, ts*0.38)}px monospace`;
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('I', wx+ts/2, wy+ts/2);
-        ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-      }
-      break;
-
-    case T.BLDG_R: {
-      const lv = tile.level || 2;
-      const bh = clamp(ts*(0.28 + lv*0.14), ts*0.28, ts*0.9);
-      ctx.fillStyle = '#2d6a2d'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = `hsl(${25+lv*5},55%,${32+lv*3}%)`;
-      ctx.fillRect(wx+ts*0.1, wy+ts-bh, ts*0.8, bh);
-      ctx.fillStyle = `hsl(${25+lv*5},40%,${25+lv*2}%)`;
-      ctx.fillRect(wx+ts*0.1, wy+ts-bh, ts*0.8, ts*0.08);
-      if (ts >= 14) {
-        ctx.fillStyle = '#ffd580cc';
-        const cols = 2, wrows = Math.min(lv+1, 4);
-        const ww = ts*0.16, wh = ts*0.12;
-        for (let wr = 0; wr < wrows; wr++)
-          for (let wc = 0; wc < cols; wc++) {
-            const ex = wx + ts*(0.18 + wc*0.42);
-            const ey = wy + ts - bh + ts*0.12 + wr*(bh-ts*0.12)/(wrows+0.5);
-            ctx.fillRect(ex, ey, ww, wh);
-          }
-      }
-      break;
-    }
-
-    case T.BLDG_C: {
-      const lv = tile.level || 2;
-      const bh = clamp(ts*(0.35 + lv*0.13), ts*0.35, ts*0.96);
-      ctx.fillStyle = '#1a3a6a'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = `hsl(215,60%,${18+lv*3}%)`;
-      ctx.fillRect(wx+ts*0.08, wy+ts-bh, ts*0.84, bh);
-      ctx.fillStyle = 'rgba(147,197,253,0.25)';
-      ctx.fillRect(wx+ts*0.1, wy+ts-bh+2, ts*0.28, bh-2);
-      if (ts >= 14) {
-        ctx.fillStyle = 'rgba(255,255,255,0.1)';
-        const floorH = bh/(lv*2+1);
-        for (let f = 0; f < lv*2; f++)
-          ctx.fillRect(wx+ts*0.1, wy+ts-bh+2+f*floorH, ts*0.8, 1);
-      }
-      ctx.fillStyle = '#aaa';
-      ctx.fillRect(wx+ts*0.47, wy+ts-bh-ts*0.12, ts*0.06, ts*0.12);
-      break;
-    }
-
-    case T.BLDG_I: {
-      const lv = tile.level || 2;
-      ctx.fillStyle = '#1a1a22'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#2a2a38';
-      ctx.fillRect(wx+ts*0.04, wy+ts*0.35, ts*0.92, ts*0.6);
-      const chPos = [0.15, 0.45, 0.72];
-      chPos.slice(0, lv).forEach(cx => {
-        ctx.fillStyle = '#3a3a4a';
-        ctx.fillRect(wx+ts*cx, wy+ts*0.1, ts*0.12, ts*0.28);
-        if (Math.sin(t*3 + cx*10) > 0) {
-          ctx.fillStyle = 'rgba(180,180,180,0.25)';
-          ctx.beginPath(); ctx.arc(wx+ts*(cx+0.06), wy+ts*0.08, ts*0.09, 0, Math.PI*2); ctx.fill();
-          ctx.arc(wx+ts*(cx+0.09), wy+ts*0.02, ts*0.07, 0, Math.PI*2); ctx.fill();
-        }
-      });
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(wx+ts*0.04, wy+ts*0.35, ts*0.92, ts*0.05);
-      break;
-    }
-
-    case T.POWER:
-      ctx.fillStyle = '#1a1a2a'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#888';
-      ctx.fillRect(wx+ts*0.46, wy, ts*0.08, ts);
-      ctx.fillRect(wx+ts*0.2, wy+ts*0.2, ts*0.6, ts*0.06);
-      ctx.fillRect(wx+ts*0.28, wy+ts*0.5, ts*0.44, ts*0.06);
-      ctx.fillStyle = '#ffd700';
-      [[0.2,0.2],[0.8,0.2],[0.28,0.5],[0.72,0.5]].forEach(([cx,cy]) => {
-        ctx.beginPath(); ctx.arc(wx+ts*cx, wy+ts*cy, ts*0.05, 0, Math.PI*2); ctx.fill();
-      });
-      break;
-
-    // ── NUEVOS ──
-
-    case T.POLICE: {
-      ctx.fillStyle = '#0f2a4a'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#1a3a6a';
-      ctx.fillRect(wx + ts*0.06, wy + ts*0.22, ts*0.88, ts*0.72);
-      ctx.fillStyle = '#1e4d8c';
-      ctx.fillRect(wx + ts*0.1, wy + ts*0.26, ts*0.55, ts*0.64);
-      ctx.fillStyle = '#888';
-      ctx.fillRect(wx + ts*0.72, wy + ts*0.1, ts*0.04, ts*0.18);
-      ctx.fillStyle = '#1d4ed8';
-      ctx.fillRect(wx + ts*0.72, wy + ts*0.1, ts*0.16, ts*0.1);
-      ctx.fillStyle = '#93c5fd';
-      ctx.fillRect(wx + ts*0.15, wy + ts*0.32, ts*0.18, ts*0.12);
-      ctx.fillRect(wx + ts*0.38, wy + ts*0.32, ts*0.18, ts*0.12);
-      ctx.fillRect(wx + ts*0.15, wy + ts*0.50, ts*0.18, ts*0.12);
-      ctx.fillRect(wx + ts*0.38, wy + ts*0.50, ts*0.18, ts*0.12);
-      if (ts >= 16) {
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${Math.max(6, ts*0.24)}px monospace`;
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('PD', wx + ts*0.37, wy + ts*0.74);
-        ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-      }
-      const sirenOn = Math.sin(t * 6) > 0;
-      ctx.fillStyle = sirenOn ? 'rgba(59,130,246,0.9)' : 'rgba(239,68,68,0.9)';
-      ctx.beginPath(); ctx.arc(wx + ts*0.5, wy + ts*0.17, ts*0.07, 0, Math.PI*2); ctx.fill();
-      break;
-    }
-
-    case T.FIRE: {
-      ctx.fillStyle = '#1a0a00'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#7f1d1d';
-      ctx.fillRect(wx + ts*0.05, wy + ts*0.18, ts*0.9, ts*0.78);
-      ctx.fillStyle = '#991b1b';
-      ctx.fillRect(wx + ts*0.55, wy + ts*0.5, ts*0.32, ts*0.44);
-      ctx.fillStyle = '#7f1d1d';
-      ctx.fillRect(wx + ts*0.55, wy + ts*0.58, ts*0.32, ts*0.02);
-      ctx.fillRect(wx + ts*0.55, wy + ts*0.66, ts*0.32, ts*0.02);
-      ctx.fillRect(wx + ts*0.55, wy + ts*0.74, ts*0.32, ts*0.02);
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(wx + ts*0.12, wy + ts*0.28, ts*0.18, ts*0.14);
-      ctx.fillRect(wx + ts*0.35, wy + ts*0.28, ts*0.14, ts*0.14);
-      if (ts >= 16) {
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${Math.max(6, ts*0.24)}px monospace`;
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('FD', wx + ts*0.28, wy + ts*0.72);
-        ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-      }
-      const flicker = 0.5 + 0.5 * Math.sin(t * 8 + wx * 0.1);
-      ctx.fillStyle = `rgba(251,146,60,${0.6 + flicker * 0.4})`;
-      ctx.beginPath(); ctx.arc(wx + ts*0.5, wy + ts*0.14, ts*(0.06 + flicker*0.05), 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = `rgba(239,68,68,${0.5 + flicker * 0.3})`;
-      ctx.beginPath(); ctx.arc(wx + ts*0.5, wy + ts*0.1, ts*0.04, 0, Math.PI*2); ctx.fill();
-      break;
-    }
-
-    case T.HOSPITAL: {
-      ctx.fillStyle = '#2d3748'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#f8fafc'; ctx.fillRect(wx + ts*0.08, wy + ts*0.2, ts*0.84, ts*0.74);
-      ctx.fillStyle = '#e2e8f0'; ctx.fillRect(wx + ts*0.15, wy + ts*0.3, ts*0.7, ts*0.64);
-      ctx.fillStyle = '#dc2626';
-      ctx.fillRect(wx + ts*0.44, wy + ts*0.4, ts*0.12, ts*0.34);
-      ctx.fillRect(wx + ts*0.33, wy + ts*0.51, ts*0.34, ts*0.12);
-      ctx.fillStyle = '#93c5fd';
-      ctx.fillRect(wx + ts*0.18, wy + ts*0.35, ts*0.1, ts*0.1);
-      ctx.fillRect(wx + ts*0.72, wy + ts*0.35, ts*0.1, ts*0.1);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(wx + ts*0.5, wy + ts*0.28, ts*0.12, 0, Math.PI*2); ctx.stroke();
-      if (ts >= 16) {
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${Math.max(5, ts*0.16)}px monospace`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('H', wx + ts*0.5, wy + ts*0.28);
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-      }
-      break;
-    }
-
-    case T.SCHOOL: {
-      ctx.fillStyle = '#1e3a1e'; ctx.fillRect(wx, wy, ts, ts);
-      ctx.fillStyle = '#d97706'; ctx.fillRect(wx + ts*0.08, wy + ts*0.25, ts*0.84, ts*0.68);
-      ctx.fillStyle = '#b45309';
-      ctx.beginPath();
-      ctx.moveTo(wx + ts*0.08, wy + ts*0.25);
-      ctx.lineTo(wx + ts*0.5, wy + ts*0.12);
-      ctx.lineTo(wx + ts*0.92, wy + ts*0.25);
-      ctx.fill();
-      ctx.fillStyle = '#78350f'; ctx.fillRect(wx + ts*0.42, wy + ts*0.65, ts*0.16, ts*0.28);
-      ctx.fillStyle = '#fde047';
-      ctx.fillRect(wx + ts*0.16, wy + ts*0.36, ts*0.16, ts*0.18);
-      ctx.fillRect(wx + ts*0.68, wy + ts*0.36, ts*0.16, ts*0.18);
-      ctx.fillRect(wx + ts*0.16, wy + ts*0.62, ts*0.16, ts*0.18);
-      ctx.fillRect(wx + ts*0.68, wy + ts*0.62, ts*0.16, ts*0.18);
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(wx + ts*0.5, wy + ts*0.22, ts*0.06, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000'; ctx.fillRect(wx + ts*0.49, wy + ts*0.19, ts*0.02, ts*0.04);
-      break;
-    }
-  }
-}
-
-// Tiles a mostrar
-const ALL_TILES = [
-  { type: 'grass' }, { type: 'water' }, { type: 'road' }, { type: 'bridge' },
-  { type: 'tree' }, { type: 'park' }, { type: 'sand' },
-  { type: 'zone-r' }, { type: 'zone-c' }, { type: 'zone-i' },
-  { type: 'bldg-r', level: 2 }, { type: 'bldg-c', level: 3 }, { type: 'bldg-i', level: 2 },
-  { type: 'power' },
-  { type: 'police', _new: true }, { type: 'fire', _new: true },
-  { type: 'hospital', _new: true }, { type: 'school', _new: true },
-];
-
-const LABELS = {
-  grass:'Pasto', water:'Agua', road:'Calle', bridge:'Puente',
-  tree:'Árbol', park:'Parque', sand:'Arena',
-  'zone-r':'Zona R', 'zone-c':'Zona C', 'zone-i':'Zona I',
-  'bldg-r':'Edif. R', 'bldg-c':'Edif. C', 'bldg-i':'Edif. I',
-  power:'Central', police:'Comisaría ★', fire:'Bomberos ★',
-  hospital:'Hospital ★', school:'Escuela ★',
-};
-
-let gameTime = 0;
-
-function renderAll() {
-  gameTime += 0.016;
-  document.querySelectorAll('canvas[data-tile]').forEach(cv => {
-    const type = cv.dataset.tile;
-    const ts = parseInt(cv.dataset.ts);
-    const level = parseInt(cv.dataset.level || 1);
-    const ctx = cv.getContext('2d');
-    ctx.clearRect(0, 0, ts, ts);
-    drawTile(ctx, { type, level }, 0, 0, ts, gameTime);
-  });
-  requestAnimationFrame(renderAll);
-}
-
-// Render UI
-ALL_TILES.forEach(tile => {
-  const box = document.createElement('div');
-  box.className = 'tile-box';
-  const h2 = document.createElement('h2');
-  h2.textContent = LABELS[tile.type] || tile.type;
-  h2.style.color = tile._new ? '#fbbf24' : '#fff';
-  box.appendChild(h2);
-
-  SIZES.forEach(sz => {
-    const cv = document.createElement('canvas');
-    cv.width = sz; cv.height = sz;
-    cv.dataset.tile = tile.type;
-    cv.dataset.ts = sz;
-    if (tile.level) cv.dataset.level = tile.level;
-    const label = document.createElement('div');
-    label.className = 'label';
-    label.textContent = `${sz}px`;
-    box.appendChild(cv);
-    box.appendChild(label);
-  });
-
-  document.body.appendChild(box);
-});
-
-requestAnimationFrame(renderAll);
-</script>
+  <!-- ENGINE DEPENDENCIES -->
+  <script src="js/constants.js"></script>
+  <script src="js/pedestrians.js"></script>
+  <script src="js/vehicles.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/render_bridge.js"></script>
+  <script src="js/render_1.js"></script>
+  <script src="js/render_2.js"></script>
+  <script src="js/render_3.js"></script>
+  <script src="js/preview.js"></script>
 </body>
 </html>

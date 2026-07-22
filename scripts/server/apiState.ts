@@ -3,11 +3,15 @@ import { citizenViewState } from '../../src/simulation/citizens/view.ts';
 import { CITY_SIZES } from '../../src/simulation/scenario/index.ts';
 import { json } from './http.ts';
 import type { Handler } from './types.ts';
+import { censusCity } from '../../src/simulation/tileCensus.ts';
+import { listGameLogs } from './gameLog.ts';
 
-export const handleState: Handler = (req, res, { game }) => {
+export const handleState: Handler = (req, res, context) => {
+  const { game } = context;
   if (req.method !== 'GET') return false;
   if (req.url?.split('?')[0] === '/api/state') {
     const totalCitizens = Object.values(game.citizens).reduce((sum, list) => sum + list.length, 0);
+    const census = censusCity(game.city.districts, game.citizens);
     json(res, 200, {
       day: game.clock.currentDay, hour: game.clock.currentHour, minute: game.clock.currentMinute,
       speed: game.clock.currentSpeed, treasury: game.city.treasury,
@@ -17,13 +21,14 @@ export const handleState: Handler = (req, res, { game }) => {
       organizations: game.city.organizations,
       footprintLog: [...game.opinion.footprints].reverse().slice(0, 30),
       opinionBreakdown: [...game.opinion.breakdownHistory].reverse().slice(0, 10),
-      districts: game.city.districts.map(d => ({ id: d.id, population: d.population, approval: d.approval, services: d.services, economy: d.economy, social: d.social, cohorts: game.cohorts[d.id] ?? [] })),
+      districts: game.city.districts.map(d => ({ id: d.id, population: d.population, approval: d.approval, services: d.services, economy: d.economy, social: d.social, cohorts: game.cohorts[d.id] ?? [], census: census.districts.find(item => item.id === d.id)?.census })),
       totalCitizens, activeCitizens: activeCitizenCount(game.citizens),
-      citizens: citizenViewState(game.citizens, game.clock.currentDay),
+      citizens: citizenViewState(game.citizens, game.clock.currentDay), census,
       citySize: game.citySize, cityDimensions: CITY_SIZES[game.citySize],
     });
     return true;
   }
+  if (req.url?.split('?')[0] === '/api/game-logs') { json(res, 200, { max: 5, logs: listGameLogs(context.gameLogDirectory) }); return true; }
   if (req.url?.split('?')[0] === '/api/citizens') { json(res, 200, game.citizens); return true; }
   if (req.url?.split('?')[0] === '/api/tilemap') {
     const tiles: any[] = [];

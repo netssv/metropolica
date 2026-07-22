@@ -12,7 +12,7 @@ const nextConfig: import('next').NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3000/api/:path*' // Proxy to backend
+        destination: `http://localhost:${process.env.METROPOLICA_BACKEND_PORT ?? 3000}/api/:path*` // Proxy to backend
       }
     ]
   }

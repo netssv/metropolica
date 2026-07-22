@@ -19,7 +19,7 @@ export type ScenarioResult = { status: "running" | "won" | "lost"; reason?: stri
 export type CitySize = "tiny" | "small" | "big" | "very-big" | "enormous";
 export const CITY_SIZES: Record<CitySize, { cols: number; rows: number; label: string }> = {
   tiny: { cols: 24, rows: 18, label: "Tiny" },
-  small: { cols: 48, rows: 36, label: "Small" },
+  small: { cols: 48, rows: 36, label: "Normal" },
   big: { cols: 96, rows: 72, label: "Big" },
   "very-big": { cols: 128, rows: 96, label: "Very big" },
   enormous: { cols: 160, rows: 120, label: "Enormous" },
@@ -39,7 +39,7 @@ export class ScenarioRunner {
   private readonly content: CiudadDivididaContent;
   private readonly streaks = { treasury: 0, approval: 0 };
   private readonly consumptionLedger = new Set<string>();
-  constructor(content: CiudadDivididaContent, millisecondsPerDay = 3_600_000, seed = 1, citySize: CitySize = "big") {
+  constructor(content: CiudadDivididaContent, millisecondsPerDay = 3_600_000, seed = 1, citySize: CitySize = "small") {
     this.citySize = citySize;
     this.content = content; this.city = { ...content.startingCity, districts: content.districts.map(item => structuredClone(item.district)), organizations: [] };
     for (const district of this.city.districts) for (const service of ["gasolina", "supermercado", "hospitales", "bomberos", "ocio", "telefonía"] as const) {

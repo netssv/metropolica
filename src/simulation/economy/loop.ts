@@ -6,6 +6,7 @@ import { simulateHouseholdTick } from "../households/index.ts";
 import { aggregateDistrictEconomy, summarizeEconomy, type EconomySnapshot } from "./index.ts";
 import { clampRate } from "../formulas/economy.ts";
 import type { UtilityCoverage } from "../utilities/coverage.ts";
+import { censusCity } from "../tileCensus.ts";
 
 export type DistrictCohortMap = Record<string, HouseholdCohort[]>;
 
@@ -36,6 +37,7 @@ export class EconomyLoop {
     }
   }
   private weeklyEconomyTick(): void {
+    console.log(JSON.stringify({ event: "tile-census", ...censusCity(this.city.districts, {}) }));
     const allOutputs: HouseholdTickOutput[] = [];
     for (const district of this.city.districts) {
       const outputs = this.outputs.get(district.id) ?? [];

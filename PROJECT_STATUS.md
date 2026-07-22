@@ -21,6 +21,460 @@ threshold, an equal-weight linear deficit across the three critical services and
 Convenience services remain excluded, and crime/social-risk must never feed back into coverage, approval or
 opinion.
 
+### Registro persistente, assets 2D, tráfico y expansión de tiles — 2026-07-21
+### Mejora del ciclo visual de peatones — 2026-07-21
+
+Se ajustaron los peatones decorativos para eliminar saltos erráticos: ahora usan una fase lenta y
+continua, desplazamiento reducido y ciclo de pasos. Las piernas alternan visiblemente mientras
+caminan y el cuerpo tiene un pequeño rebote. Cuando hay una construcción junto a la calle, el ciclo
+incluye estados visuales de acercamiento/entrada y salida, con una señal cálida breve en la puerta.
+Todo continúa siendo presentación decorativa, sin ciudadanía simulada ni cambios económicos.
+Typecheck raíz, frontend y 15/15 pruebas pasan.
+
+### Peatones decorativos en zoom máximo — 2026-07-21
+
+Se añadieron peatones visuales en `frontend/src/lib/pedestrianSprites.ts`. Aparecen únicamente
+desde zoom 2 (por lo que el zoom máximo los hace claramente visibles), se colocan de forma
+determinista junto a tiles `road`/`bridge`, caminan con una pequeña animación y tienen variaciones
+de color. Son estrictamente decorativos: no se agregan a `citizens`, no modifican población,
+economía, rutas ni colas de vehículos. Typecheck raíz, frontend y 15/15 pruebas pasan.
+
+### Ventanas y humo nocturno en viviendas — 2026-07-21
+
+El asset residencial procedural ahora recibe el estado nocturno real del HUD. Entre 19:00 y 06:00
+las ventanas cambian a un tono cálido visible y cada vivienda desarrollada muestra una chimenea con
+tres puffs de humo animados mediante seno y desfasados por tile. Durante el día se conserva la
+paleta clara y no se dibuja humo. Se reutilizan los assets Canvas 2D existentes; typecheck raíz,
+frontend y 15/15 pruebas pasan.
+
+### Economía y assets de borde acuático — 2026-07-21
+
+Los comercios e industrias ubicados a hasta dos tiles Manhattan del agua ahora reciben preferencia
+de especialidad: `fish-market` y `pier` para comercio, `customs` y `water-treatment` para industria.
+Si el distrito ya alcanzó su límite de oferta, el generador sustituye un edificio genérico por uno
+de borde acuático para no aumentar artificialmente la cantidad total. El metadata queda disponible
+para futuros loops económicos y el renderer muestra iconos/volúmenes acuáticos procedurales. Los
+hospitales y mall-government conservan prioridad y no se reasignan. Typecheck raíz, frontend y
+15/15 pruebas pasan.
+
+### Puente con ancho de carretera e intersecciones sobre agua — 2026-07-21
+
+La corrección anterior todavía dejaba una diferencia visual porque el tablero conservaba un margen
+interior. Ahora el tablero `bridge` usa exactamente el mismo rombo completo que `road`; el agua solo
+se dibuja antes como fondo visible en los bordes cuando la perspectiva lo permite. La conexión se
+calcula con el mismo `roadConnections()` que las calles, por lo que un `bridge` con 3 o 4 vecinos
+mantiene todos sus brazos, marcas y barandales como una intersección vial, no como un puente angosto
+aislado. Typecheck raíz, typecheck frontend y 15/15 pruebas pasan.
+
+### Ajuste de ancho visual del puente — 2026-07-21
+
+La primera versión del asset de puente usaba un margen interior de 2 px por lado para revelar el
+agua, haciendo que el tablero pareciera más estrecho que una carretera normal. El tablero ahora
+usa prácticamente todo el rombo vial (`0.5 px` de margen proporcional al zoom); el agua queda como
+borde sutil y los barandales permanecen dentro de la calzada. Typechecks y pruebas de tráfico/mapa
+pasan.
+
+### Asset visual de puentes sobre agua — 2026-07-21
+
+Los mapas ya marcaban correctamente como `bridge` las carreteras colocadas sobre agua, pero el
+renderer mostraba principalmente un rombo marrón. Ahora `drawRoad()` mantiene agua visible en los
+bordes y dibuja un tablero de madera con marcas, barandales laterales y soporte central. El asset
+es procedural Canvas 2D y reutiliza el agua animada existente debajo; las carreteras terrestres no
+reciben estos elementos. Typecheck raíz, typecheck frontend y 15/15 pruebas pasan.
+
+### Agua animada en Canvas — 2026-07-21
+
+El asset procedural de agua ya existía, pero sus líneas de ola eran estáticas porque
+`drawIsoTile()` no recibía el timestamp del frame. Ahora el renderer transmite `time` al asset y
+dibuja tres ondas con fase senoidal por tile, de modo que cada superficie de agua tiene movimiento
+continuo y ligeramente desfasado. Se mantiene el mismo asset Canvas 2D, sin sprites externos.
+Typecheck raíz, typecheck frontend y 15/15 pruebas pasan.
+
+### Fila que reiniciaba al cambiar la rutina — 2026-07-21
+
+Se aisló el caso observado: un auto retenido por semáforo/cola podía seguir en ruta cuando el
+reloj pasaba de `regreso a casa` a `ocio en casa` o `sueño`. Como el destino seguía siendo el mismo
+`homeTile` pero el progreso aún era menor que 1, `transit.ts` reconstruía el viaje y lo reiniciaba
+en progreso 0. El retraso de un vehículo podía así reiniciar repetidamente a toda la fila y evitar
+que completaran su rutina.
+
+Ahora el tránsito conserva ruta, progreso y fase de llegada siempre que el destino no cambie; solo
+reinicia el viaje cuando cambia realmente el destino. Se añadió la regresión `a queued home trip
+keeps progress when the routine label changes`. Typecheck raíz, typecheck frontend y 15/15 pruebas
+pasan.
+
+### Diagnóstico de autos estancados camino al trabajo — 2026-07-21
+
+La lógica de intersecciones podía producir un bloqueo simétrico: dos vehículos perpendiculares
+aproximándose al mismo cruce se veían mutuamente como `yield`, por lo que ambos frenaban antes de
+entrar y ninguno liberaba la condición. El semáforo rojo y el seguimiento de cola siguen siendo
+frenos válidos; el caso nuevo distingue un vehículo que ya está dentro del cruce y, cuando ambos
+solo se aproximan, asigna prioridad determinista por ID. Así uno avanza y el otro espera, evitando
+el deadlock permanente.
+
+Se añadió la regresión `perpendicular vehicles use deterministic priority instead of mutual yield
+deadlock`. Typecheck raíz, typecheck frontend y 15/15 pruebas pasan.
+
+### Auditoría de assets visuales contra mapas — 2026-07-21
+
+Se cruzaron los tipos emitidos por `generateInitialMap()` con `drawIsoTile()` y los assets
+procedurales activos. No hay tipos de mapa sin renderer: terreno, agua, arena, árboles, carreteras,
+puentes, parques, energía, zonas y edificios residenciales/comerciales/industriales tienen ruta
+visual. Hospital y mall-government son variantes procedurales de los tiles comerciales existentes,
+por lo que no aparecen como edificios huérfanos.
+
+Se corrigió la referencia documental de `VISUAL_ASSETS.md`: el renderer actual usa Canvas 2D sin
+sprites externos y tiers 0/1/2, no la tabla histórica de cuatro niveles ni las categorías móviles
+de taxi/patrulla/ambulancia/bus, que no son emitidas por el tránsito actual. Las viviendas ocupadas
+usan el perfil del hogar para mostrar casa, dúplex o apartamento. La auditoría no encontró un asset
+visual faltante o desalineado con los mapas; no fue necesario cambiar lógica de juego.
+
+### Balance de edificios iniciales por demanda — 2026-07-21
+
+La auditoría de seeds mostró que los mapas grandes escalaban edificios con el área disponible,
+no con la demanda: el seed 42 en Enormous llegaba a 199 viviendas en Centro, 442 en Periferia y
+414 industrias, aunque el escenario inicia con 20 ciudadanos por distrito y poblaciones económicas
+fijas de 800/1200/700. Esto podía hacer parecer que existían casas sin ciudadanos.
+
+El generador ahora limita el stock inicial a 20 viviendas por distrito, mantiene el mínimo para los
+20 ciudadanos, y limita comercio/industria según población: comercio máximo 20/30/18 e industria
+máxima 27/40/24 para Centro/Periferia/Zona industrial. Los excedentes se convierten en terreno libre;
+los servicios especiales siguen seleccionándose de los comercios restantes. Se validó que Tiny,
+Normal, Big, Very big y Enormous no multiplican la oferta solo por tamaño de mapa. Se añadieron
+pruebas deterministas de cobertura y límites; la suite completa pasa 15/15.
+
+### Menú del reloj y modo noche — 2026-07-21
+
+El reloj del HUD ahora abre un menú contextual con `+1 hora`, `+6 horas`, `Ir al día` (08:00) e
+`Ir a la noche` (20:00). Se añadió `/api/advance-hours`, que avanza la simulación en fracciones
+de día y registra el salto en el log persistente; los controles existentes de velocidad y avance
+de días permanecen intactos.
+
+La ciudad activa modo noche automáticamente entre 19:00 y 06:00: conserva los edificios, viviendas,
+vehículos y assets procedurales existentes, aplicando una capa azul translúcida, luna y estrellas
+discretas sobre el Canvas. No se añadieron sprites externos ni se duplicó el renderer. Typecheck
+raíz, typecheck frontend y 15/15 pruebas pasan.
+
+El botón diurno ahora calcula el salto desde los bloques `sueño` de las rutinas ciudadanas y avanza
+a su hora de finalización más temprana; con los perfiles actuales es 07:00, la hora real de
+despertar, en lugar de forzar las 08:00.
+
+### Corrección de arranque a medianoche — 2026-07-21
+
+Se confirmó la hipótesis de vehículos fuera del hogar al iniciar la partida: el reloj comienza en
+hora 0, la rutina ya selecciona `sueño`, pero el renderer no tenía viaje previo y calculaba el
+origen como `workTile`; por eso creaba un regreso a casa mientras el ciudadano ya estaba en modo
+sueño. Ahora, cuando no existe viaje previo, la actividad doméstica entre 00:00 y 07:00 inicia
+directamente en el `homeTile` con progreso 1. Los retornos reales desde trabajo a partir de las
+16:00 conservan su ruta y deben llegar antes de cambiar a descanso/sueño.
+
+Se añadió la regresión `midnight sleep starts at home instead of sending the citizen home late`.
+Typecheck raíz, typecheck frontend y la suite completa pasan: 15/15.
+
+### Garantía de viviendas al generar el seed — 2026-07-21
+
+La revisión del último log confirmó que no había `homeTile` ausentes, pero sí una oferta inicial
+desigual: el seed solo garantizaba 12 parcelas residenciales por distrito mientras
+`assignCitizens()` crea 20 ciudadanos por distrito. Eso hacía que la asignación dependiera de
+reutilización/fallback y dejaba autos visualmente sin una casa inequívoca, aunque el diagnóstico
+posterior reportara un `homeTile`.
+
+`MIN_RESIDENTIAL_TILES_PER_DISTRICT` ahora es 20, igual a la población ciudadana inicial por
+distrito. El generador prioriza terrenos junto a carretera y, si no bastan, convierte terreno
+libre no acuático (pasto, arena o árboles) para completar el stock; así también el mapa Tiny queda
+en 20/20/20 parcelas residenciales para el seed 42. La prueba determinista de mapas verifica la
+garantía para el tamaño Normal y la prueba de ciudadanía conserva que cada ciudadano recibe hogar
+y destino laboral. Los assets siguen siendo procedurales: el renderer eleva las viviendas ocupadas
+a casa/dúplex/edificio según el perfil visible.
+
+### Auditoría de último log: autos y viviendas — 2026-07-21
+
+El último log (`game-2026-07-22T04-50-17-967Z-tquiv1.json`) no contiene ciudadanos Level 3 sin
+`homeTile`. Encontró 60 ciudadanos activos, 3 tiles residenciales ocupados y 20 ciudadanos por
+hogar representado. La causa de que los autos parecieran dormir afuera era visual: los tiles
+`bldg-r` ocupados tenían `level: 0` y el renderer aplicaba `growthTier: 0` del distrito, que dibuja
+un lote, aunque `housingByTile` ya identificaba el hogar.
+
+El renderer ahora fuerza tier 1 para una vivienda ocupada y tier 2 cuando el perfil representado
+tiene al menos 3 ciudadanos o ingreso de hogar de al menos 1500. Así el asset muestra casa, dúplex
+o edificio/apartamento acorde al perfil visible. La auditoría confirmó que los assets actuales son
+procedurales (`buildingSprites.ts`); no hay sprites residenciales externos en `frontend/public`
+que estén ocultando la vivienda. La discrepancia de capacidad de nivel 0 queda documentada: el log
+representa ciudadanos activos por hogar, mientras `tileCensus` usa capacidad estructural del tile.
+
+### Registro persistente de partidas — 2026-07-21
+
+Se añadió `scripts/server/gameLog.ts`. Cada arranque del backend y cada `/api/reset` inicia una
+sesión JSON independiente en `.metropolica/logs/games/`; la rotación elimina los archivos antiguos
+y conserva estrictamente los 5 más recientes. Cada evento incluye secuencia y timestamp, y los
+snapshots incluyen día/hora/minuto/velocidad, tamaño y resultado de ciudad, ciudadanos con IDs,
+hogar/trabajo/destinos, rutinas, actividad, nivel, viviendas residenciales por distrito y eventos
+de reset, avance, velocidad, inspección, save y load.
+
+El endpoint `GET /api/game-logs` devuelve el índice de las cinco sesiones. La prueba operativa hizo
+6 resets consecutivos: el endpoint devolvió exactamente 5 archivos, cada uno con su `sessionId` y
+2 eventos iniciales. Los logs se excluyen del control de versiones mediante `.gitignore`. Las rutas
+de carretera calculadas exclusivamente dentro del renderer siguen disponibles en el diagnóstico
+frontend gated; el log backend conserva sus extremos (`homeTile`/`workTile`) para correlacionarlas.
+
+### Corrección de autos fuera de casa durante el sueño — 2026-07-21
+
+**Diagnóstico:** el tránsito reconstruye el viaje cuando cambia `activityKey`. La rutina tiene dos
+bloques domésticos consecutivos (`ocio en casa` 17–22 y `sueño` 22–24); al cambiar entre ellos,
+el rebuild reiniciaba el viaje a `progress=0` aunque el vehículo ya hubiera alcanzado el mismo
+`homeTile`. Por eso reaparecía en la calle durante el sueño. No era un problema de cupos ni una cola
+permanente.
+
+**Corrección:** si el destino nuevo coincide con el destino anterior y el viaje ya tenía
+`progress >= 1`, se conserva la llegada y su fase de animación aunque cambie la actividad. Se añadió
+la regresión `arrival remains at home across consecutive home activities`, junto con las pruebas
+existentes de llegada bounded-home. Typecheck raíz, typecheck frontend y 15/15 pruebas pasan.
+
+### Barrido de verificación visual — 2026-07-21
+
+Se añadió el harness reutilizable `test/browser-verification-sweep.ts`. Con el servidor temporal
+3200/3201 produjo capturas para los cinco tamaños (`/tmp/metropolica-browser-sweep/size-tiny.png`,
+`size-small.png`, `size-big.png`, `size-very-big.png`, `size-enormous.png`) y para especialidades
+en zoom normal y alejado (`specialties-normal.png`, `specialties-zoomed-out.png`). Las capturas
+confirman carga del Canvas y el mapa no cuadrado en cada tamaño; la etapa completa de save/load y
+selección del inspector debe repetirse porque el primer barrido terminó prematuramente después de
+generar esas capturas. No se cambia lógica por ese fallo del harness.
+
+La ruta de `zona_industrial-citizen-12` en el mapa Small fue medida con 16 nodos frente a un umbral
+de 15 (`max(12, 2.5 × Manhattan(2))`), por lo que el cálculo determinista devuelve `delayed`.
+La captura del Inspector mostrando “Commute: Demorado” aún no quedó generada; queda como incidencia
+de verificación del harness, no como bug confirmado de la aplicación. El fallback visual de
+bomberos/ocio/telefonía sigue fuera de alcance y requiere autorización separada.
+
+### Reparación del wrapper npm y verificación de vivienda — 2026-07-21
+
+**Causa de entorno:** `npm` resolvía primero `/home/netss/.local/bin/npm`, un wrapper stale creado
+el 2026-07-16 que ejecutaba `/app/bin/host-spawn /usr/bin/npm`. No había referencia a `host-spawn`
+en `package.json`, `.npmrc` ni scripts del proyecto; `/app/bin/host-spawn` no existe en este
+entorno y `/usr/bin/npm` sí. Se reemplazó el wrapper por un passthrough persistente a
+`/usr/bin/npm`, por lo que los comandos estándar vuelven a funcionar. El bypass permanente no es
+un cambio de lógica del proyecto.
+
+**Evidencia Part 1:** `npm run typecheck`, `npm run typecheck:frontend` y `npm test` pasaron;
+15/15 pruebas. El servidor temporal arrancó mediante `npm run start:all` en puertos 3200/3201.
+Playwright generó `/tmp/metropolica-home-arrival.png` y
+`/tmp/metropolica-home-arrival-diagnostics.json`: 1.310 registros, 10 vehículos, estados
+`normal/following/yield/stop`, y tres vehículos alcanzaron `routeProgress=1` (`periferia-citizen-13`,
+`zona_industrial-citizen-2`, `zona_industrial-citizen-5`). El estado API mostró 30 Level-3, 30 con
+`homeTile` y ninguno sin vivienda. El cruce con `/api/tilemap` contó 36 tiles residenciales,
+capacidad 36, 3 tiles ocupados y 33 cupos abiertos. Se dejó intacta la lógica de tráfico/housing.
+
+### Scope proposal — viviendas sin motivo de propiedad
+
+Esta propuesta no está implementada y requiere autorización de Rodrigo.
+
+Actualmente `generateInitialMap()` genera un mínimo procedural determinista de tiles `bldg-r` cercanos a carreteras por distrito (`MIN_RESIDENTIAL_TILES_PER_DISTRICT`) para garantizar stock habitacional básico en mapas nuevos y pequeños. Después `assignCommuteLocations()` asigna los `homeTile` a ese stock.
+
+Eliminar viviendas no asignadas exigiría rehacer el orden actual de spawn/asignación, porque los ciudadanos reciben casa después de que existe el mapa. También requiere una causalidad ciudadano-construye, compatibilidad de save/load con mapas existentes y un caso de degradación para mapas pequeños.
+
+Opciones: mantener una semilla pequeña solo dentro de zonas residenciales designadas por el jugador (estable, pero puede dejar distritos sin vivienda); hacer construcción completamente dirigida por demanda cuando un hogar necesite una parcela válida (más coherente, pero requiere estados de construcción y un arranque nuevo); o separar viviendas iniciales explícitamente propietarias de la vivienda zonificada futura (conserva el tutorial, pero añade metadata, migraciones y reglas de capacidad/venta). No debe implementarse ninguna opción sin el checkpoint de Rodrigo, como ocurrió con Phase 2a/2b, economía de proximidad y el loop de consumo.
+
+### Corrección de vehículos sin vivienda — 2026-07-21
+
+`assignCommuteLocations()` consumía capacidad por ciudadano y no reutilizaba explícitamente la
+vivienda elegida para los demás miembros del mismo hogar. Esto podía agotar artificialmente los
+cupos y dejar un ciudadano Level 3 sin `homeTile`; `transit.ts` lo filtraba antes de crear el viaje,
+por lo que nunca tenía destino ni ruta. Ahora la contabilidad inicial y las nuevas asignaciones usan
+hogares únicos, y todos los miembros reutilizan el tile de su `householdId`.
+
+La prueba de capacidad residencial real confirma que un ciudadano sin vivienda recibe un `bldg-r`
+disponible, aparece en `censusTiles()` y recibe también destino laboral. La suite completa 15/15 y
+ambos typechecks locales pasan. La evidencia Playwright/JSON fresca queda pendiente por el wrapper
+global de npm roto (`/app/bin/host-spawn` inexistente); no se modificó la Parte 2.
+
+### Corrección de llegada a casa y colas lógicas — 2026-07-21
+
+**Regresión aislada:** el rebuild de `frontend/src/lib/citizens/transit.ts` calculaba el origen
+del viaje y después llamaba `nearestRoad(graph, target, from)`. Cuando la vivienda ya era el nodo
+de carretera más cercano al vehículo (caso normal al terminar una cola), el parámetro `exclude`
+descartaba precisamente el nodo de destino. La actividad de hogar podía entonces crear una ruta
+que se alejaba de `homeTile`, dejando sin completar la llegada. La corrección permite que el destino
+sea el mismo nodo que `from`; la prueba determinista `bounded-home` alcanza progreso `1` en menos
+de 200 ticks.
+
+**Cola lógica:** `trafficBehavior.ts` ahora mide `followingGap()` en unidades de progreso sobre
+el mismo segmento dirigido y también entre el segmento de entrada y el siguiente segmento ocupado
+por el líder. La prueba de tres vehículos confirma que los dos seguidores entran en estado
+`following` y que el hueco medido no converge por debajo del umbral de seguimiento. Se mantiene
+`enforceVisualGap()` como no-op; la separación ya no depende del renderizado.
+
+**Verificación:** 15/15 pruebas Node y ambos `tsc --noEmit` locales pasan. `npm run typecheck`,
+`npm run typecheck:frontend` y `npm test` no pueden arrancar porque el wrapper global
+`/home/netss/.local/bin/npm` apunta a `/app/bin/host-spawn`, que no existe en este entorno; esto es
+un problema de entorno, no del proyecto. No se declara nueva evidencia Playwright/JSON en esta
+pasada hasta poder ejecutar un servidor reproducible; los diagnósticos continúan correctamente
+gated por `window.__METROPOLICA_TRAFFIC_DEBUG__` / `TRAFFIC_DIAGNOSTICS`.
+
+### Diagnóstico instrumentado de tráfico — 2026-07-22
+
+**Hallazgos medidos antes de modificar la lógica:** el logger temporal de `citizenTransit` se
+activó con `window.__METROPOLICA_TRAFFIC_DEBUG__` y Playwright capturó 2.060 registros de 10
+vehículos en Tiny, incluyendo aproximación y espera ante señales.
+
+- **Solapamiento/desalineación:** la posición lógica más el carril se desplazaba por
+  `enforceVisualGap()` una media de 35,8 px y hasta 252 px respecto de la posición calculada.
+  El empuje dependía del orden de dibujo y podía crecer al comparar posiciones ya empujadas; no
+  era un error de `laneOffset()` ni de la proyección.
+- **Velocidad errática:** el registro no mostró una velocidad física aleatoria: la decisión era
+  binaria (`targetSpeed` 1/0), con cambio máximo observado de 0,125 en la muestra. Sí se confirmó
+  que `dt` variable se multiplica directamente por `simulationSpeed=8`, haciendo visibles los
+  saltos entre frames aceptados y frames de espera. El estado lógico y la interpolación no tenían
+  una única velocidad acotada.
+- **Parada fuera de línea:** el vehículo `periferia-citizen-13`, segmento `7,7>7,6`, quedó en
+  `localProgress=0.7495` con señal roja; `stopBeforeJunction()` solo devolvía un booleano y la
+  actualización atravesaba el umbral 0.55 antes de detenerse. La posición no era la línea de
+  parada declarada.
+
+La captura y el JSON pre-fix fueron `/tmp/metropolica-diagnostic-before-fix.png` y
+`/tmp/metropolica-traffic-diagnostics.json`. Se elimina el logger del camino normal tras la
+corrección; queda disponible únicamente detrás del flag explícito para futuras auditorías.
+
+**Corrección aplicada y límite de esta pasada:** se retiró el empuje visual acumulativo de
+`enforceVisualGap()` y se adelantó la decisión de frenado para evitar que un frame cruce la línea
+de 55%. El logger quedó gated y el harness puede producir JSON con `TRAFFIC_DIAGNOSTICS`. Los
+typechecks locales y las 15 pruebas Node pasan. La captura post-fix es
+`/tmp/metropolica-traffic-after-fix.png`; confirma mapa, señales y vehículos activos, pero no se
+marca como evidencia final de “sin overlap”: aún se observa concentración visual en una
+intersección. El siguiente diagnóstico debe medir proximidad entre segmentos contiguos y ocupación
+del nodo antes de aplicar otra corrección. `npm run ...` no pudo ejecutarse en este entorno porque
+el wrapper global de npm apunta a `/app/bin/host-spawn`, inexistente; se ejecutaron los binarios
+locales equivalentes.
+
+### Blindaje de arranque y recuperación — 2026-07-21
+
+- [x] `scripts/start.sh` usa lock atómico y metadata aislada en `.metropolica/run/` para evitar lanzamientos duplicados y recuperar artefactos huérfanos.
+- [x] Los procesos se validan por PID, ejecutable/directorio y pertenencia al checkout; la limpieza termina únicamente grupos iniciados por esta ejecución.
+- [x] Puertos 3000/3001 son preferidos, con fallback configurable; los overrides explícitos fallan con diagnóstico si están ocupados.
+- [x] Health checks por capas validan proceso, JSON de `/api/state`, HTML de Next y proxy `/api/state`, con logs y causa resumida en el backlog.
+- [ ] La prueba automatizada exhaustiva de escenarios de launcher queda pendiente; se verificó sintaxis y preflight local en esta pasada.
+
+## Continuación — ciudad isométrica, vehículos y viviendas (2026-07-21)
+
+### Implementado
+
+- Se mantuvo el renderizado visual en Canvas 2D, usando detalles procedurales para terreno,
+  vegetación, agua, edificios y vehículos; no se añadieron imágenes externas ni nuevas categorías
+  de tiles.
+- Los ciudadanos activos ahora usan vehículos Canvas 2D seleccionados de forma determinista según
+  el ingreso del hogar: compact/pickup para ingresos bajos, sedan/SUV/minivan para ingresos medios,
+  y sports/electric/limo para ingresos altos.
+- Los vehículos respetan la perspectiva isométrica: su orientación se calcula con la dirección
+  proyectada en pantalla, por lo que el dibujo gira correctamente cuando avanzan horizontal o
+  verticalmente en la cuadrícula.
+- Se retiró el fondo amarillo del marcador ciudadano y se conservó únicamente el indicador de
+  selección.
+- Se añadió separación visual y lógica básica de seguimiento entre vehículos, con desplazamiento
+  lateral por carril para calles de dos sentidos y distancia mínima para evitar superposición.
+- La lógica auxiliar de tráfico de carriles quedó separada en
+  `frontend/src/lib/citizens/roadTraffic.ts` y `roadTrafficTypes.ts` para facilitar mantenimiento.
+- Las viviendas residenciales adaptan su silueta procedural a ingreso/tamaño: casa individual,
+  dúplex o edificio de apartamentos, incluyendo líneas de pisos para las viviendas agrupadas.
+- Se añadió selección de casas residenciales desde el Canvas. El inspector muestra ubicación,
+  distrito, tipo de vivienda, habitantes, ingreso del hogar y el tipo de vehículo asociado.
+- El inspector de vivienda permite abrir el detalle individual de cada residente.
+- Se corrigió el arranque del frontend cambiando Next.js de Turbopack a Webpack y limpiando la caché
+  `.next`; el typecheck del frontend pasa sin diagnósticos.
+
+### Pendiente de pulir antes de cerrar esta línea
+
+- La asociación visual casa-hogar todavía usa datos agregados/heurísticos en algunos tiles; debe
+  consolidarse para que cada vivienda individual represente exactamente un hogar y sus residentes.
+- Debe garantizarse que todos los ciudadanos tengan `homeTile` válido, incluyendo ciudadanos no
+  activos, sin usar césped como fallback cuando exista capacidad residencial.
+- La distancia entre vehículos, el bloqueo de cruces y el respeto de semáforos deben convertirse en
+  una única lógica de tráfico por carril, evitando colisiones entre direcciones opuestas y giros.
+- Falta completar la animación de llegada: los autos deben entrar a la vivienda, reducirse hasta un
+  punto y desaparecer sin reaparecer abruptamente.
+- Falta una verificación visual en navegador de selección de casas, orientación de vehículos,
+  colas, semáforos y desaparición al llegar.
+
+### Cierre técnico de la pasada de pulido
+
+- [x] La vivienda visual ahora se alimenta del `homeTile` real de cada ciudadano visible y agrupa
+  habitantes por coordenada; el ingreso se resuelve desde el cohorte del `householdId`, sin usar el
+  promedio del distrito para clasificar una casa con residentes.
+- [x] `assignCommuteLocations()` asigna `homeTile` también a ciudadanos Level 2 cuando existe una
+  vivienda residencial, manteniendo los cohortes como fuente autoritativa y dejando el fallback de
+  césped solo para mapas antiguos sin casas.
+- [x] El avance de tránsito combina separación mínima, desplazamiento determinista por carril y
+  bloqueo por semáforo rojo en el nodo de intersección según el eje de movimiento. La espera ocurre
+  antes de cruzar, y no se añadió estado al backend ni una nueva entidad de simulación.
+- [x] Al llegar al destino, el vehículo conserva el viaje durante una fase de llegada de 1.2 s,
+  reduce su escala progresivamente y desaparece en el punto de destino; la marca de consumo sigue
+  disparándose una sola vez por ciudadano, actividad y día.
+- [x] Verificación técnica: typecheck raíz, typecheck frontend y 14 pruebas Node pasan.
+- [ ] Verificación visual de navegador sigue pendiente: confirmar en pantalla casas, colas,
+  semáforos, orientación y desaparición. No se marca como observada sin capturas reproducibles.
+
+### Verificación visual de tráfico — 2026-07-21
+
+- [x] Se comprobó que no había procesos huérfanos escuchando en 3000/3001 (`lsof` vacío).
+- [x] El bind dentro del sandbox falla reproduciblemente con `listen EPERM: operation not permitted 127.0.0.1`.
+- [x] `scripts/start.sh`, backend y proxy Next ahora aceptan `METROPOLICA_BACKEND_PORT` y
+  `METROPOLICA_FRONTEND_PORT`; fuera del sandbox se confirmó HTTP 200 en 3100/3101.
+- [x] Playwright navegó end-to-end y produjo `/tmp/metropolica-dedicated-buildings.png` y
+  `/tmp/metropolica-map-evidence.png`. La segunda demuestra que el Canvas carga, aunque el mapa
+  quedó sin tiles en esa captura por el estado inicial del arnés; el overlay del menú fue retirado
+  solo dentro de Playwright.
+- [x] Se implementó el dibujo de dos cabezales por cruce en `drawTrafficSignalHeads()`, usando la
+  misma fase pura `signalVisualState()` que la lógica de movimiento.
+- [x] La detención roja se adelanta al 55% del segmento de entrada mediante `stopBeforeJunction()`;
+  se añadieron pruebas de punto de detención y estado visual del semáforo.
+- [x] El harness reusable `frontend/scripts/verify/occupied-traffic-check.ts` reinicia Tiny por API,
+  recarga para evitar la carrera de estado, cierra `Continuar` y espera que `.menu-overlay` desaparezca.
+  Si un entorno de desarrollo deja el modal pegado por HMR, lo retira únicamente dentro del contexto
+  de prueba y lo registra como fallback; no modifica la aplicación.
+- [x] Verificación real contra Next producción: `METROPOLICA_BACKEND_PORT=3100 node scripts/serve.ts`,
+  `METROPOLICA_BACKEND_PORT=3100 next build` y `next start -p 3101`. Playwright confirmó
+  `menuDismissedByReact=true`, 30 ciudadanos Level-3, 80 intersecciones y generó
+  `/tmp/metropolica-occupied-traffic.png`.
+- [x] La captura muestra el mapa activo, múltiples vehículos y cabezales de señal rojos/verdes en
+  cruces. Las aserciones Canvas pasaron: `signalLike=19531`, `brightPixels=2432`.
+
+### Tráfico — revisión de comportamiento
+
+- [x] Se confirmó que la lógica de tráfico de ciudadanos estaba parcialmente mezclada dentro de
+  `transit.ts`: el seguimiento usaba índices de ruta incompatibles entre vehículos y la separación
+  visual dependía del orden de dibujo.
+- [x] La decisión de movimiento quedó separada en
+  `frontend/src/lib/citizens/trafficBehavior.ts`. Evalúa únicamente el mismo segmento y sentido,
+  distancia de seguimiento, semáforo de entrada y cruce ocupado para ceder el paso.
+- [x] Los autos que circulan en dirección opuesta ya no se consideran vehículos de adelante; los
+  vehículos que atraviesan un cruce pueden bloquear temporalmente la entrada de otro vehículo.
+- [x] El semáforo se evalúa por eje y por avance dentro del segmento de entrada, con detención antes
+  del nodo de intersección. La velocidad sigue limitada por el paso fijo de tránsito existente.
+- [x] La separación visual quedó como función independiente (`enforceVisualGap`) y ya no modifica
+  el progreso lógico ni empuja vehículos de forma acumulativa durante la simulación.
+- [x] Se añadieron pruebas para seguimiento en el mismo sentido, circulación opuesta y detención en
+  rojo. Typecheck raíz, typecheck frontend y las pruebas enfocadas pasan.
+- [ ] Falta la comprobación visual final en navegador para calibrar escala, tiempos de espera,
+  colas largas y giros en mapas reales; no se marcará como validada hasta observar capturas.
+
+### Auditoría y corrección de agrupamiento visual de tráfico
+
+- [x] La reproducción Playwright fue intentada antes del cambio. El sandbox bloqueó los binds de
+  3000/3001 con `EPERM`; el arranque externo encontró el puerto 3000 ocupado y no permitió acceder
+  al frontend. La evidencia visual nueva queda pendiente, no se declara observada.
+- [x] `laneOffset()` ahora calcula la perpendicular real al vector proyectado isométrico. Antes
+  aplicaba un desplazamiento diagonal que sacaba los vehículos del centro de la calzada.
+- [x] La separación visual solo compara vehículos del mismo segmento y sentido. Se eliminó el
+  empuje global entre autos de calles o direcciones diferentes, que dependía del orden de dibujo.
+- [x] `trafficBehavior.ts` usa progreso local del tramo para semáforos y ocupación de cruces. La
+  cesión se activa para tráfico transversal ocupado y no confunde vehículos opuestos del mismo eje
+  con tráfico perpendicular.
+- [x] La asignación de destinos incorpora cupos deterministas por tile: residencial nivel bajo 1,
+  nivel medio 2 y nivel alto 4; destinos laborales usan cupos derivados del nivel del tile. Cuando
+  se agota el cupo, conserva el fallback estable sin crear entidades ni alterar los cohortes.
+- [x] La suite completa queda en 15/15 pruebas aprobadas y los typechecks raíz/frontend pasan.
+- [ ] Falta una captura visual reproducible con puertos disponibles para validar escala del auto,
+  colas largas, cruces y llegada a viviendas. `git diff --check` conserva un aviso preexistente en
+  `js/constants.js:45` sobre una línea en blanco final, no introducido por esta corrección.
+
 ## Authorized workstreams — commute delay Phase 1 + dedicated hospital/mall-government Phase 1
 
 **Design decisions before implementation:**

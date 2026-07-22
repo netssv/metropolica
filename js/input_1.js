@@ -148,12 +148,21 @@ function placeTile(col, row) {
   const prev = tile.type;
 
   switch (currentTool) {
-    case 'zone-r':  tile.type = T.ZONE_R; tile.level = 0; break;
-    case 'zone-c':  tile.type = T.ZONE_C; tile.level = 0; break;
-    case 'zone-i':  tile.type = T.ZONE_I; tile.level = 0; break;
-    case 'road':    tile.type = (tile.type === T.WATER) ? T.BRIDGE : T.ROAD; break;
-    case 'park':    tile.type = T.PARK;  break;
-    case 'power':   tile.type = T.POWER; break;
-    case 'demolish':tile.type = T.GRASS; tile.level = 0; break;
+    case 'zone-r':    tile.type = T.ZONE_R; tile.level = 0; break;
+    case 'zone-c':    tile.type = T.ZONE_C; tile.level = 0; break;
+    case 'zone-i':    tile.type = T.ZONE_I; tile.level = 0; break;
+    case 'road':      tile.type = (tile.type === T.WATER) ? T.BRIDGE : T.ROAD; break;
+    case 'park':      tile.type = T.PARK;  break;
+    case 'power':     tile.type = T.POWER; break;
+    case 'police':    tile.type = T.POLICE; break;
+    case 'fire':      tile.type = T.FIRE; break;
+    case 'hospital':  tile.type = T.HOSPITAL; break;
+    case 'school':    tile.type = T.SCHOOL; break;
+    case 'city_hall': tile.type = T.CITY_HALL; break;
+    case 'market':    tile.type = T.MARKET; break;
+    case 'transit':   tile.type = T.TRANSIT; break;
+    case 'stadium':   tile.type = T.STADIUM; break;
+    case 'cemetery':  tile.type = T.CEMETERY; break;
+    case 'demolish':  tile.type = T.GRASS; tile.level = 0; break;
     default: return;
   }

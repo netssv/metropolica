@@ -22,3 +22,20 @@ test("small maps degrade safely when fewer eligible residential plots exist", ()
     assert.ok(count(tiles, "bldg-r") <= MIN_RESIDENTIAL_TILES_PER_DISTRICT);
   }
 });
+
+test("seed housing stock covers the scenario citizen count in every district", () => {
+  const districts = generateInitialMap(42, 48, 36);
+  for (const tiles of Object.values(districts)) {
+    assert.ok(count(tiles, "bldg-r") >= 20);
+  }
+});
+
+test("large maps do not overbuild starting demand", () => {
+  const districts = generateInitialMap(42, 160, 120);
+  assert.ok(count(districts.centro, "bldg-r") <= 20);
+  assert.ok(count(districts.periferia, "bldg-r") <= 20);
+  assert.ok(count(districts.zona_industrial, "bldg-r") <= 20);
+  assert.ok(count(districts.centro, "bldg-c") <= 20);
+  assert.ok(count(districts.periferia, "bldg-c") <= 30);
+  assert.ok(count(districts.zona_industrial, "bldg-i") <= 24);
+});

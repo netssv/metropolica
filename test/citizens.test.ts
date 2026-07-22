@@ -3,12 +3,28 @@ import assert from "node:assert";
 import { ScenarioRunner } from "../src/simulation/scenario/index.ts";
 import { ciudadDividida } from "../src/content/scenarios/ciudad_dividida.ts";
 import { activeCitizenCount, assignCommuteLocations, workplaceFor } from "../src/simulation/citizens/index.ts";
+import { censusTiles } from "../src/simulation/tileCensus.ts";
 
 test("occupation classification distinguishes health and non-retail services", () => {
   assert.strictEqual(workplaceFor({ occupation: "Médico de hospital" }).label, "salud / hospital");
   assert.strictEqual(workplaceFor({ occupation: "Funcionario municipal" }).label, "gobierno");
   assert.strictEqual(workplaceFor({ occupation: "Venta al por mayor de alimentos" }).label, "servicios");
   assert.strictEqual(workplaceFor({ occupation: "Vendedor minorista" }).label, "comercio / mall");
+});
+
+test("available residential capacity assigns a missing home and leaves it routable", () => {
+  const tiles = [
+    { id: "h", col: 0, row: 0, type: "bldg-r", level: 3, owner: "d" },
+    { id: "r", col: 1, row: 0, type: "road", level: 0, owner: "d" },
+    { id: "w", col: 2, row: 0, type: "bldg-c", level: 1, owner: "d" },
+  ] as any;
+  const citizen = { id: "homeless-driver", householdId: "d-cohort-0", occupation: "comerciante", level: 3 } as any;
+  const assigned = assignCommuteLocations({ d: [citizen] }, [{ id: "d", tiles } as any]).d[0];
+  const census = censusTiles(tiles, [assigned]);
+  assert.deepEqual(assigned.homeTile, { col: 0, row: 0 });
+  assert.equal(census.residencial.total, 1);
+  assert.equal(census.residencialesOcupados, 1);
+  assert.ok(assigned.workTile);
 });
 
 test("commute destinations distribute across multiple industrial tiles deterministically", () => {

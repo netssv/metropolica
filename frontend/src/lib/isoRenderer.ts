@@ -14,15 +14,15 @@ import { ISO_TILE_W, ISO_TILE_H, gridToIso } from './isoMath';
 import type { Projection } from './projection';
 import { T } from './constants';
 import { hasBusinessAccent } from './businessAccents';
-import { drawBuilding, drawPark, drawPowerPlant, PROCEDURAL_DETAIL_ZOOM } from './buildingSprites';
+import { drawBuilding, drawPark, drawPowerPlant, PROCEDURAL_DETAIL_ZOOM, type HousingProfile } from './buildingSprites';
+import { signalVisualState } from './trafficSystem';
+import type { TileSpecialty } from '../../../src/simulation/models';
 
 const SPRITE_COLS = 5;
 const SPRITE_ROWS = 6;
-// Buildings and water are drawn procedurally as small pixel-art shapes. This
-// avoids decoding and sampling the former multi-megabyte sprite sheets on
-// every map frame.
+// Buildings, terrain and water are drawn procedurally with Canvas 2D.
+// Legacy helpers remain available for compatibility, but no asset is loaded.
 let spriteSheet: HTMLCanvasElement | null = null;
-let spriteImage: HTMLImageElement | null = null;
 const spriteCache = new Map<string, HTMLCanvasElement>();
 
 /**
@@ -89,7 +89,7 @@ function loadImg(src: string, onLoad: (img: HTMLImageElement) => void) {
 }
 
 export function ensureSpritesLoaded() {
-  if (!spriteImage) loadImg('/sprites/tiles.png', img => { spriteImage = img; keySpriteSheet(img); });
+  // Kept as a no-op compatibility hook for the map renderer.
 }
 
 /** Sprite positions in the sheet (col, row) — 0-indexed */
@@ -175,6 +175,28 @@ function drawDiamond(ctx: CanvasRenderingContext2D, px: number, py: number, zoom
   ctx.fill();
 }
 
+/** Small Canvas 2D terrain assets. They stay deterministic per tile so the
+ * city has variety without adding textures or another render pass. */
+function drawTerrainDetails(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: number, type: string, seed: number) {
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return;
+  const hw = ISO_TILE_W * zoom / 2, hh = ISO_TILE_H * zoom / 2;
+  const cx = px + hw, cy = py + hh;
+  const variant = Math.abs(seed) % 3;
+  if (type === T.TREE) {
+    ctx.fillStyle = '#5a3f2d'; ctx.fillRect(cx - 2 * zoom, cy - 2 * zoom, 4 * zoom, 13 * zoom);
+    ctx.fillStyle = ['#276d42', '#347f4b', '#1e5631'][variant];
+    ctx.beginPath(); ctx.arc(cx, cy - 9 * zoom, 9 * zoom, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#58a85e'; ctx.beginPath(); ctx.arc(cx - 5 * zoom, cy - 12 * zoom, 5 * zoom, 0, Math.PI * 2); ctx.fill();
+  } else if (type === T.GRASS) {
+    ctx.fillStyle = '#8bcf75';
+    for (let i = 0; i < 3; i++) { const x = px + (7 + ((seed + i * 11) % 17)) * zoom; const y = py + (7 + ((seed + i * 7) % 10)) * zoom; ctx.fillRect(x, y, 2 * zoom, 2 * zoom); }
+  } else if (type === T.SAND) {
+    ctx.fillStyle = '#b9a56f';
+    ctx.fillRect(cx - 9 * zoom, cy + 2 * zoom, 3 * zoom, 1.5 * zoom);
+    ctx.fillRect(cx + 4 * zoom, cy - 6 * zoom, 2 * zoom, 1.5 * zoom);
+  }
+}
+
 type TileMap = Array<Array<{ type?: string } | undefined>>;
 
 /** Reprojects the already-rendered isometric frame; this is the same map, not a second tile map. */
@@ -198,11 +220,23 @@ function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: n
   const hh = (ISO_TILE_H / 2) * zoom;
   const connections = roadConnections(map, col, row);
   const horizontal = connections.east || connections.west;
-  ctx.fillStyle = bridge ? '#75624d' : '#30363b';
-  ctx.beginPath();
-  ctx.moveTo(px + hw, py); ctx.lineTo(px + hw * 2, py + hh);
-  ctx.lineTo(px + hw, py + hh * 2); ctx.lineTo(px, py + hh);
-  ctx.closePath(); ctx.fill();
+  if (bridge) {
+    // Water remains visible around the bridge deck so the tile reads as a crossing,
+    // not as a brown road painted over land.
+    ctx.fillStyle = '#1a5f8a';
+    ctx.beginPath(); ctx.moveTo(px + hw, py); ctx.lineTo(px + hw * 2, py + hh); ctx.lineTo(px + hw, py + hh * 2); ctx.lineTo(px, py + hh); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#75624d';
+    // The bridge deck must have the exact same footprint as a road tile,
+    // including when this tile is a water intersection.
+    ctx.beginPath(); ctx.moveTo(px + hw, py); ctx.lineTo(px + hw * 2, py + hh);
+    ctx.lineTo(px + hw, py + hh * 2); ctx.lineTo(px, py + hh); ctx.closePath(); ctx.fill();
+  } else {
+    ctx.fillStyle = '#30363b';
+    ctx.beginPath();
+    ctx.moveTo(px + hw, py); ctx.lineTo(px + hw * 2, py + hh);
+    ctx.lineTo(px + hw, py + hh * 2); ctx.lineTo(px, py + hh);
+    ctx.closePath(); ctx.fill();
+  }
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return;
   ctx.strokeStyle = bridge ? '#d5b06b' : '#737b82';
   ctx.lineWidth = Math.max(1, zoom * 1.5);
@@ -222,6 +256,34 @@ function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: n
     ctx.beginPath(); ctx.moveTo(center.x, center.y); ctx.lineTo(end.x, end.y); ctx.stroke();
   }
   ctx.setLineDash([]);
+  if (bridge) {
+    // Wooden side rails and piers are the bridge-specific visual asset.
+    ctx.strokeStyle = '#4a3427'; ctx.lineWidth = Math.max(1.5, zoom * 1.5);
+    for (const [connected, end] of arms) {
+      if (!connected) continue;
+      const dx = end.x - center.x, dy = end.y - center.y;
+      const length = Math.max(1, Math.hypot(dx, dy));
+      const nx = -dy / length * 3 * zoom, ny = dx / length * 3 * zoom;
+      ctx.beginPath(); ctx.moveTo(center.x + nx, center.y + ny); ctx.lineTo(end.x + nx, end.y + ny); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(center.x - nx, center.y - ny); ctx.lineTo(end.x - nx, end.y - ny); ctx.stroke();
+    }
+    ctx.fillStyle = '#5b4030';
+    ctx.fillRect(center.x - 2 * zoom, center.y + 3 * zoom, 4 * zoom, 8 * zoom);
+  }
+}
+
+export function drawTrafficSignalHeads(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: number, map: TileMap | undefined, col: number, row: number, time: number) {
+  if (zoom < 0.7 || !isRoadAt(map, col, row)) return;
+  const connected = [[col, row - 1], [col + 1, row], [col, row + 1], [col - 1, row]].filter(([c, r]) => isRoadAt(map, c, r));
+  if (connected.length < 3) return;
+  const cx = px + ISO_TILE_W * zoom / 2, cy = py + ISO_TILE_H * zoom / 2;
+  for (const axis of ['horizontal', 'vertical'] as const) {
+    const visual = signalVisualState(axis, time);
+    const offset = axis === 'horizontal' ? { x: 9 * zoom, y: -9 * zoom } : { x: -9 * zoom, y: -9 * zoom };
+    ctx.strokeStyle = '#20252a'; ctx.lineWidth = Math.max(1, zoom); ctx.beginPath(); ctx.moveTo(cx + offset.x, cy + offset.y + 10 * zoom); ctx.lineTo(cx + offset.x, cy + offset.y); ctx.stroke();
+    ctx.fillStyle = '#161b20'; ctx.fillRect(cx + offset.x - 3 * zoom, cy + offset.y - 3 * zoom, 6 * zoom, 6 * zoom);
+    ctx.fillStyle = visual.color; ctx.beginPath(); ctx.arc(cx + offset.x, cy + offset.y, 2.2 * zoom, 0, Math.PI * 2); ctx.fill();
+  }
 }
 
 /** Draw a crisis/risk tint on a tile. */
@@ -254,7 +316,7 @@ function drawBusinessAccent(ctx: CanvasRenderingContext2D, type: string, col: nu
 /** Draw one tile (terrain + optional sprite). `inCrisis` adds a red overlay. */
 export function drawIsoTile(
   ctx: CanvasRenderingContext2D,
-  tile: { type: string; specialty?: 'hospital' | 'mall-government'; inCrisis?: boolean; growthTier?: 0 | 1 | 2; businessAccentTiles?: any[] },
+  tile: { type: string; specialty?: TileSpecialty; inCrisis?: boolean; isNight?: boolean; growthTier?: 0 | 1 | 2; businessAccentTiles?: any[]; housing?: HousingProfile },
   col: number,
   row: number,
   offsetX: number,
@@ -262,14 +324,21 @@ export function drawIsoTile(
   zoom: number,
   map?: TileMap,
   project: Projection = (c, r) => { const p = gridToIso(c, r); return { x: p.x * zoom + offsetX, y: p.y * zoom + offsetY }; },
+  time = 0,
+  night = false,
 ) {
   const { x: px, y: py } = project(col, row);
 
   if (tile.type === T.WATER) {
     drawDiamond(ctx, px, py, zoom, '#1a5f8a');
     if (zoom >= PROCEDURAL_DETAIL_ZOOM) {
+      const phase = time / 900 + (col * 0.7 + row * 0.35);
       ctx.strokeStyle = 'rgba(116, 210, 222, .55)'; ctx.lineWidth = Math.max(1, zoom);
-      ctx.beginPath(); ctx.moveTo(px + 8 * zoom, py + ISO_TILE_H * zoom * .5); ctx.lineTo(px + ISO_TILE_W * zoom * .5, py + 4 * zoom); ctx.stroke();
+      for (let wave = 0; wave < 3; wave++) {
+        const offset = Math.sin(phase + wave * 2.1) * 3 * zoom;
+        const y = py + (0.28 + wave * 0.2) * ISO_TILE_H * zoom + offset;
+        ctx.beginPath(); ctx.moveTo(px + (5 + wave * 3) * zoom, y); ctx.quadraticCurveTo(px + ISO_TILE_W * zoom * .42, y - 2 * zoom, px + ISO_TILE_W * zoom * (.72 + wave * .04), y + 1 * zoom); ctx.stroke();
+      }
     }
     return;
   }
@@ -285,6 +354,7 @@ export function drawIsoTile(
   const terrainColor = TERRAIN_COLOR[tile.type];
   if (terrainColor) {
     drawDiamond(ctx, px, py, zoom, terrainColor);
+    drawTerrainDetails(ctx, px, py, zoom, tile.type, col * 31 + row * 17);
     if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
     return;
   }
@@ -292,7 +362,8 @@ export function drawIsoTile(
   const seed = col * 31 + row * 17;
   if (tile.type === T.BLDG_R || tile.type === T.BLDG_C || tile.type === T.BLDG_I ||
       tile.type === T.ZONE_R || tile.type === T.ZONE_C || tile.type === T.ZONE_I) {
-    drawBuilding(tile.type, tile.growthTier ?? 0, { ctx, px, py, zoom, seed }, tile.specialty);
+    const visualNight = tile.isNight ?? (night || (typeof document !== 'undefined' && document.body.dataset.metropolicaNight === 'true'));
+    drawBuilding(tile.type, tile.growthTier ?? 0, { ctx, px, py, zoom, seed, night: visualNight, time }, tile.specialty, tile.housing);
     drawBusinessAccent(ctx, tile.type, col, row, px, py, zoom, tile.businessAccentTiles);
     if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
     return;

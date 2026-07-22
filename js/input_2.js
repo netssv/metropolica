@@ -9,10 +9,13 @@
       const gc = col, gr = row;
       setTimeout(() => growZone(gc, gr), 4000 + Math.random() * 6000);
     }
-    // Respawn pedestrians if road changed
-    if (currentTool === 'road' || currentTool === 'demolish') {
+    // Respawn pedestrians & vehicles if road changed
+    if (currentTool === 'road' || currentTool === 'transit' || currentTool === 'demolish') {
       clearTimeout(pedRespawnTimer);
-      pedRespawnTimer = setTimeout(spawnPedestrians, 500);
+      pedRespawnTimer = setTimeout(() => {
+        spawnPedestrians();
+        if (typeof spawnVehicles === 'function') spawnVehicles();
+      }, 500);
     }
   }
 }

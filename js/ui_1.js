@@ -1,78 +1,4 @@
-// ── Draw tiles ──
-
-  for (let r = startR; r <= endR; r++) {
-    for (let c = startC; c <= endC; c++) {
-      const tile = tileMap[r]?.[c];
-      if (tile) drawTile(gameCtx, tile, c * ts, r * ts, ts, gameTime);
-    }
-  }
-
-  
-// ── Grid lines (only when zoomed in) ──
-
-  if (cam.zoom >= 0.55) {
-    gameCtx.strokeStyle = 'rgba(255,255,255,0.04)';
-    gameCtx.lineWidth   = 0.5;
-    for (let c = startC; c <= endC + 1; c++) {
-      gameCtx.beginPath();
-      gameCtx.moveTo(c*ts, startR*ts);
-      gameCtx.lineTo(c*ts, (endR+1)*ts);
-      gameCtx.stroke();
-    }
-    for (let r = startR; r <= endR + 1; r++) {
-      gameCtx.beginPath();
-      gameCtx.moveTo(startC*ts, r*ts);
-      gameCtx.lineTo((endC+1)*ts, r*ts);
-      gameCtx.stroke();
-    }
-  }
-
-  
-// ── District boundary lines & labels ──
-
-  drawDistrictOverlay(gameCtx, ts, startR, endR);
-
-  
-// ── Tool hover highlight ──
-
-  if (hoveredTile && currentTool !== 'cursor') {
-    const { col, row } = hoveredTile;
-    gameCtx.fillStyle   = 'rgba(255,255,255,0.12)';
-    gameCtx.fillRect(col*ts, row*ts, ts, ts);
-    gameCtx.strokeStyle = toolColor();
-    gameCtx.lineWidth   = 2;
-    gameCtx.strokeRect(col*ts + 1, row*ts + 1, ts - 2, ts - 2);
-  }
-
-  
-// ── At-risk district pulse ──
-
-  (simState.districts ?? []).forEach(d => {
-    if (!d.social?.atRisk) return;
-    const zone = DISTRICT_ZONES.find(z => z.id === d.id);
-    if (!zone) return;
-    const alpha = 0.06 + 0.04 * Math.sin(gameTime * 3);
-    gameCtx.fillStyle = `rgba(239,68,68,${alpha})`;
-    gameCtx.fillRect(zone.startCol*ts, 0, (zone.endCol-zone.startCol+1)*ts, MAP_H);
-    // crisis banner
-    const bx = (zone.startCol + (zone.endCol-zone.startCol)/2) * ts;
-    const by = ts * 1.5;
-    gameCtx.fillStyle = 'rgba(239,68,68,0.9)';
-    gameCtx.fillRect(bx - 52, by - 12, 104, 18);
-    gameCtx.fillStyle = '#fff';
-    gameCtx.font = 'bold 9px system-ui';
-    gameCtx.textAlign = 'center'; gameCtx.textBaseline = 'middle';
-    gameCtx.fillText('⚠ CRISIS LOCAL', bx, by - 3);
-    gameCtx.textAlign = 'left'; gameCtx.textBaseline = 'alphabetic';
-  });
-
-  requestAnimationFrame(renderFrame);
-}
-
-  
-
 // ── TILE INSPECTOR ──
-
 
 const TILE_NAMES = {
   [T.GRASS]:'Pasto',[T.WATER]:'Agua',[T.ROAD]:'Calle',[T.BRIDGE]:'Puente',
@@ -82,7 +8,11 @@ const TILE_NAMES = {
   [T.BLDG_I]:'Instalación Industrial',[T.POWER]:'Central Eléctrica',
   [T.POLICE]:'Comisaría',[T.FIRE]:'Bomberos',
   [T.HOSPITAL]:'Hospital',[T.SCHOOL]:'Escuela',
+  [T.CITY_HALL]:'Ayuntamiento',[T.MARKET]:'Mercado Central',
+  [T.TRANSIT]:'Estación de Tránsito',[T.STADIUM]:'Estadio Deportivo',
+  [T.CEMETERY]:'Cementerio',
 };
+
 
 function inspectTile(col, row) {
   const tile = tileMap[row][col];

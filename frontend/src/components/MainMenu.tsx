@@ -5,7 +5,7 @@ import { useGameContext } from '../hooks/GameContext';
 export default function MainMenu() {
   const { isMenuOpen, setIsMenuOpen, fetchState } = useGameContext();
   const [saveExists, setSaveExists] = useState(false);
-  const [citySize, setCitySize] = useState('big');
+  const [citySize, setCitySize] = useState('small');
 
   useEffect(() => {
     if (isMenuOpen) {
@@ -48,7 +48,7 @@ export default function MainMenu() {
         <div className="menu-buttons">
           <label className="city-size-label" htmlFor="city-size">Tamaño de ciudad</label>
           <select id="city-size" className="city-size-select" value={citySize} onChange={e => setCitySize(e.target.value)}>
-            <option value="tiny">Tiny</option><option value="small">Small</option><option value="big">Big</option><option value="very-big">Very big</option><option value="enormous">Enormous</option>
+            <option value="tiny">Tiny</option><option value="small">Normal</option><option value="big">Big</option><option value="very-big">Very big</option><option value="enormous">Enormous</option>
           </select>
           <button className="menu-btn primary" onClick={() => setIsMenuOpen(false)}>Continuar</button>
           <button className={`menu-btn ${saveExists ? 'primary' : ''}`} disabled={!saveExists} onClick={handleLoad}>Cargar partida</button>

@@ -2,6 +2,15 @@
 
 This project incorporates architectural patterns and sprite image assets from the following open-source projects:
 
+## KotCity
+- **Author/project**: KotCity contributors
+- **Repository**: [https://github.com/kotcity/kotcity](https://github.com/kotcity/kotcity)
+- **License**: Apache License 2.0
+- **Consultation**: The traffic/pathfinding source and design documents were read as a design
+  reference for `docs/traffic-design-notes.md` (A* with caching, `CityMap.trafficLayer`, and
+  aggregated traffic calculation). No KotCity source code, assets, or copied implementation is
+  included in Metropolica.
+
 ## isometric-city
 - **Author**: amilich
 - **Repository**: [https://github.com/amilich/isometric-city](https://github.com/amilich/isometric-city)

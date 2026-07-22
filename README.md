@@ -4,7 +4,15 @@ Metropolica is a headless-first TypeScript city simulation focused on public res
 
 ## Start everything
 
-Run `bash scripts/start.sh` from the project root. It starts the backend on port 3000 and the frontend on port 3001, waits for both health checks, and stops both processes together with Ctrl+C. Output is written to `.metropolica/logs/`; startup failures are appended to `STARTUP_BACKLOG.md`.
+Run `./scripts/start.sh` from the project root. It starts the backend on port 3000 and the frontend on port 3001, validates the backend JSON contract and the frontend proxy, and stops both process groups together with Ctrl+C. Runtime metadata is kept in `.metropolica/run/` and logs in `.metropolica/logs/`.
+
+If either preferred port is occupied by an unrelated process, the launcher chooses free ports in `METROPOLICA_PORT_START`–`METROPOLICA_PORT_END` (default `3000`–`3999`) and prints the effective URLs. Explicit ports are strict and fail with the owning PID/command when occupied:
+
+```bash
+METROPOLICA_BACKEND_PORT=3200 METROPOLICA_FRONTEND_PORT=3201 ./scripts/start.sh
+```
+
+Useful diagnostics are `cat .metropolica/run/ports`, `cat .metropolica/run/backend.pid`, `cat .metropolica/run/frontend.pid`, and `tail -n 80 .metropolica/logs/{backend,frontend}.log`. A healthy second launcher is rejected by the instance lock and is never killed. To stop an identified instance, send `TERM` to its launcher PID; Ctrl+C performs the normal group cleanup. Startup failures are appended to `STARTUP_BACKLOG.md`.
 
 ## Credits & Acknowledgments
 

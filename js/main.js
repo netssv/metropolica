@@ -95,8 +95,9 @@ async function init() {
   await refreshAll();
   updateHUD();
 
-  // Spawn pedestrians
+  // Spawn pedestrians & vehicles
   spawnPedestrians();
+  if (typeof spawnVehicles === 'function') spawnVehicles();
 
   // Start game loop
   lastFrameTs = performance.now();

@@ -21,7 +21,11 @@ export const LABELS: Record<string, string> = {
   TECH: 'Tecnología',
   centro: 'Centro',
   periferia: 'Periferia',
-  zona_industrial: 'Zona Industrial'
+  zona_industrial: 'Zona Industrial',
+  residencial: 'Residencial', casa: 'Casa', duplex: 'Dúplex', apartamento: 'Apartamento',
+  comercial: 'Comercial', mallGovernment: 'Gobierno / centro comercial', industrial: 'Industrial',
+  parque: 'Parque', calle: 'Calle', centralElectrica: 'Central eléctrica', agua: 'Agua', terreno: 'Terreno',
+  hogaresAsignados: 'Hogares asignados', residencialesOcupados: 'Viviendas ocupadas'
 };
 
 export function t(key: string): string {

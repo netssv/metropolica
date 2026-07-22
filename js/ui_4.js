@@ -36,20 +36,30 @@ function spawnPedestrians() {
   for (let r = 0; r < MAP_ROWS; r++)
     for (let c = 0; c < MAP_COLS; c++) {
       const t = tileMap[r]?.[c];
-      if (t && (t.type === T.ROAD || t.type === T.BRIDGE)) roads.push([c, r]);
+      if (t && (t.type === T.ROAD || t.type === T.BRIDGE || t.type === T.PARK)) roads.push([c, r]);
     }
   if (roads.length === 0) return;
 
-  const count = Math.min(300, Math.floor(roads.length * 0.35));
+  const ACCENT_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#ec4899','#14b8a6','#64748b','#f8fafc'];
+  const count = Math.min(320, Math.floor(roads.length * 0.4));
+  const types = typeof PED_TYPES !== 'undefined' ? PED_TYPES : ['casual'];
+
   for (let i = 0; i < count; i++) {
     const [tc, tr] = roads[Math.floor(Math.random() * roads.length)];
+    const pedType = types[Math.floor(Math.random() * types.length)];
+    const isElder = pedType === 'elder', isChild = pedType === 'child';
+    const speedMult = isElder ? 0.4 : isChild ? 0.7 : pedType === 'executive' ? 1.4 : 1.0;
+    const nSkins = typeof PED_SKIN_TONES !== 'undefined' ? PED_SKIN_TONES.length : 1;
     pedestrians.push({
-      x: tc + 0.3 + Math.random() * 0.4,
-      y: tr + 0.3 + Math.random() * 0.4,
+      x: tc + 0.25 + Math.random() * 0.5,
+      y: tr + 0.25 + Math.random() * 0.5,
       dir: Math.floor(Math.random() * 4),
-      speed: 0.5 + Math.random() * 0.9,
-      stepTimer: Math.random() * 0.6,
-      stepDuration: 0.3 + Math.random() * 0.8,
+      speed: (0.45 + Math.random() * 0.7) * speedMult,
+      stepTimer: Math.random(),
+      stepDuration: (isElder ? 0.9 : isChild ? 0.5 : 0.35) + Math.random() * 0.6,
+      pedType: pedType,
+      skinIdx: Math.floor(Math.random() * nSkins),
+      accentColor: ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)],
       color: pedColor(ownerForCol(tc)),
     });
   }

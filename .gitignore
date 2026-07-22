@@ -4,5 +4,6 @@ dist/
 build/
 .env
 .DS_Store
+.metropolica/logs/games/
 *.pyc
 __pycache__/

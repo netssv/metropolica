@@ -1,232 +1,145 @@
 # VISUAL_ASSETS.md — Metropolica · Catálogo de Assets Visuales
 # Motor gráfico: Canvas 2D puro (NO se usan sprites/imágenes externas)
-# Propósito: referencia para agentes IA y desarrolladores sobre qué gráficos
-# están implementados, cuáles faltan, y cómo agregarlos.
-# Última actualización: 2026-07-20
+# Propósito: referencia para agentes IA y desarrolladores sobre qué gráficos están implementados al 100%.
+# Última actualización: 2026-07-21
 
 ---
 
-## ⚠️ DECISIÓN DE ARQUITECTURA — Leer antes de generar cualquier asset
+## ⚠️ DECISIÓN DE ARQUITECTURA
 
 **Metropolica usa exclusivamente Canvas 2D primitivas** para todos los gráficos:
-- `fillRect`, `arc`, `beginPath`, `ellipse`, `strokeRect`
-- Sin imágenes externas, sin sprite sheets, sin drawImage()
-- Todo el render está en `js/render_1.js` y `js/render_2.js`
-
-**Razones:**
-1. Sin dependencia de archivos externos — carga instantánea
-2. Gráficos escalables sin pérdida de calidad a cualquier zoom
-3. Animaciones por frame sin sheets de animación
-4. Peatones y overlays en tiempo real sin texturas
+- `fillRect`, `arc`, `beginPath`, `ellipse`, `strokeRect`, `fillText`
+- Sin imágenes externas, sin sprite sheets, sin `drawImage()`
+- El render modularizado se distribuye en `js/render_1.js`, `js/render_2.js`, `js/render_3.js` y `js/render_4.js` (respetando la regla de < 200 líneas por archivo).
 
 ---
 
-## Tiles implementados (Canvas 2D)
+## 🏠 Tiles Implementados — Terreno y Zonas (`render_1.js`)
 
-| ID | Nombre ES | Archivo | Técnica | Animado | Niveles |
-|----|-----------|---------|---------|---------|---------|
-| `grass` | Pasto | `render_1.js` | fillRect base + 2 manchas | ❌ | — |
-| `water` | Agua | `render_1.js` | fillRect HSL dinámico + franja sin | ✅ por frame | — |
-| `road` | Calle | `render_1.js` | fillRect asfalto + aceras + líneas | ❌ | — |
-| `bridge` | Puente | `render_1.js` | fillRect agua + tablón + 8 barandas | ❌ | — |
-| `tree` | Árbol | `render_1.js` | fillRect tronco + 3 arc copa | ❌ | — |
-| `park` | Parque | `render_1.js` | fillRect + sendero X + 2 árboles + banco | ❌ | — |
-| `sand` | Arena | `render_1.js` | fillRect beige + 2 manchas | ❌ | — |
-| `zone-r` | Zona Residencial | `render_1.js` | fillRect + strokeRect + letra R | ❌ | — |
-| `zone-c` | Zona Comercial | `render_1.js` | fillRect + strokeRect + letra C | ❌ | — |
-| `zone-i` | Zona Industrial | `render_1.js` | fillRect + strokeRect + letra I | ❌ | — |
-| `bldg-r` | Edificio Residencial | `render_1.js` | fillRect escalado por nivel + ventanas | ❌ | 1–4 |
-| `bldg-c` | Edificio Comercial | `render_2.js` | fillRect cristal + reflejo + pisos + antena | ❌ | 1–4 |
-| `power` | Central Eléctrica | `render_2.js` | fillRect poste + travesaños + 4 arc insuladores | ❌ | — |
-| `police` | Comisaría | `render_2.js` | fillRect azul + fachada + bandera + letrero PD + sirena animada | ✅ sirena (azul/rojo) | — |
-| `fire` | Bomberos | `render_2.js` | fillRect ladrillo + garage + ventanas + letrero FD + llama animada | ✅ llama (flicker) | — |
-| `hospital` | Hospital | `render_2.js` | fillRect gris + bloque blanco/gris + cruz roja + helipuerto H | ❌ | — |
-| `school` | Escuela | `render_2.js` | fillRect pasto + ladrillo + tejado + puerta + ventanas + reloj | ❌ | — |
-
-### Entidades móviles — Peatones
-
-Implementados en `js/pedestrians.js` con Canvas 2D puro:
-
-| Elemento | Técnica | Zoom mínimo |
-|----------|---------|-------------|
-| Sombra | `ellipse` semitransparente | 0.35 |
-| Cuerpo | `arc` color por distrito | 0.35 |
-| Cabeza | `arc` beige `#f4c49a` | 1.0 |
-
-Colores por distrito:
-- Periferia → `#86efac` (verde claro)
-- Centro → `#a5f3fc` (azul claro)
-- Zona Industrial → `#fbbf24` (amarillo)
+| ID | Nombre ES | Técnica Canvas | Animado |
+|----|-----------|----------------|---------|
+| `grass` | Pasto | `fillRect` base + manchas + flores flotantes | ❌ |
+| `water` | Agua | `fillRect` HSL dinámico + olas en `sin(t)` | ✅ Olas |
+| `road` | Calle | `fillRect` asfalto + aceras + conexiones inteligentes H/V/cruces | ❌ |
+| `bridge` | Puente | `fillRect` agua + plataforma de madera + barandillas | ❌ |
+| `tree` | Árbol | `fillRect` tronco + 3 `arc` copa de follaje | ❌ |
+| `park` | Parque | `fillRect` pasto + senderos cruzados + banco + fuente animada | ✅ Fuente |
+| `sand` | Arena | `fillRect` beige + textura de dunas | ❌ |
+| `zone-r` | Zona Residencial | `fillRect` + marco + indicador "R" | ❌ |
+| `zone-c` | Zona Comercial | `fillRect` + marco + indicador "C" | ❌ |
+| `zone-i` | Zona Industrial | `fillRect` + marco + indicador "I" | ❌ |
 
 ---
 
-## Tiles PENDIENTES — Canvas 2D
+## 🏛️ Edificios y Niveles por Clase Social (`render_2.js` & `render_3.js`)
 
-Estos tiles NO existen aún. Deben implementarse en `js/render_1.js` siguiendo el patrón estándar.
+### 🏡 Residencial (`BLDG_R` — 4 Niveles por Clase Social)
+| Nivel | Tipo | Clase Social | Técnica Canvas |
+|-------|------|-------------|----------------|
+| **1** | Casa Unifamiliar / Cabaña | Clase Baja | Tejado rojo a dos aguas (`moveTo/lineTo`), pared cálida, puerta y ventana |
+| **2** | Dúplex / Chalet | Clase Media-Baja | Fachada 2 pisos, tejado plano oscuro, balcón y camino de gravilla |
+| **3** | Edificio de Apartamentos | Clase Media | Ladrillo terracota 3 pisos, marquesina azul de acceso, 9 ventanas iluminadas |
+| **4** | Torre Condominios de Lujo | Clase Alta | Rascacielos cristal panorámico azul, jardín en azotea y baliza roja animada |
 
-### Edificios públicos (tiles de T.*)
+### 🏪 Comercial (`BLDG_C` — 4 Niveles por Tipo)
+| Nivel | Tipo | Técnica Canvas |
+|-------|------|----------------|
+| **1** | Tienda Local / Minimarket | Fachada azul, escaparate transparente, marquesina amarilla |
+| **2** | Plaza Comercial / Galería | Estructura 2 niveles, balcones con escaparates iluminados y letrero |
+| **3** | Supermercado / Mall | 3 plantas de vidrio templado, franjas reflectantes horizontales |
+| **4** | Torre Corporativa Financiera | Rascacielos cristal neón panorámico con luz estroboscópica animada |
 
-| ID sugerido | Nombre | Técnica Canvas propuesta | Prioridad |
-|-------------|--------|--------------------------|-----------|
-| `police` | Comisaría | Implementado en `render_2.js` | ✅ Listo |
-| `fire` | Bomberos | Implementado en `render_2.js` | ✅ Listo |
-| `hospital` | Hospital | Implementado en `render_2.js` | ✅ Listo |
-| `school` | Escuela | Implementado en `render_2.js` | ✅ Listo |
-| `city_hall` | Ayuntamiento | fillRect gris + columnas + cúpula arc | 🟡 Media |
-| `market` | Mercado | fillRect naranja + toldo trapecio + mesas | 🟢 Baja |
-| `transit` | Parada de bus | fillRect gris + poste + techo | 🟢 Baja |
-| `stadium` | Estadio | fillRect verde + elipse campo + graderías | 🟢 Baja |
-| `cemetery` | Cementerio | fillRect gris oscuro + cruces | ⚪ Opcional |
+### 🏭 Industrial (`BLDG_I` — 4 Niveles por Tipo)
+| Nivel | Tipo | Técnica Canvas |
+|-------|------|----------------|
+| **1** | Taller Mecánico / Artesanal | Nave baja de ladrillo/acero con portón metálico corredizo |
+| **2** | Fábrica Manufacturera | Cuerpo de concreto con 1 chimenea echando humo suave animado |
+| **3** | Planta Refinería | 2 chimeneas activas con humo denso + tanque cilíndrico de almacenamiento |
+| **4** | Mega Complejo Industrial | 4 chimeneas activas con humo pulsante + luz roja de advertencia |
 
-### Entidades móviles — Autos (NO implementados)
-
-El motor actual NO tiene autos. Pendiente crear `js/vehicles.js`.
-
-| Tipo | Técnica Canvas propuesta | Dir | Estado |
-|------|--------------------------|-----|--------|
-| Sedán básico | fillRect carrocería + arc ruedas + ventanas | N/S/E/W | ❌ Pendiente |
-| Taxi | Sedán + techo amarillo + letrero | N/S/E/W | ❌ Pendiente |
-| Patrulla | Sedán azul/blanco + arco luz estroboscópica | N/S/E/W | ❌ Pendiente |
-| Ambulancia | fillRect blanco + cruz roja + luz | N/S/E/W | ❌ Pendiente |
-| Camión | fillRect largo + cabina + ruedas grandes | N/S/E/W | ❌ Pendiente |
-| Bus | fillRect muy largo + ventanas en fila | N/S/E/W | ❌ Pendiente |
-
-### Mejoras a tiles existentes
-
-| Tile actual | Mejora propuesta | Técnica |
-|-------------|-----------------|---------|
-| `road` | Variantes H/V/cruce/curva | 4 casos según tile vecino |
-| `bldg-r` | Jardín/árbol base nv1 | arc pequeño en base |
-| `grass` | Variante con flores | arc mini puntos de color |
-| `park` | Fuente animada | arc + sin(t) radio |
-| `water` | Botes/canoas | fillRect pequeño flotante |
-| `tree` | Variante temporada | HSL dinámico color hoja |
+### 🚓 Servicios y Edificios Cívicos
+| ID | Nombre ES | Archivo | Técnica Canvas | Animado |
+|----|-----------|---------|----------------|---------|
+| `power` | Central Eléctrica | `render_2.js` | Poste de alta tensión + cables + pulso amarillo | ✅ Pulso |
+| `police` | Comisaría | `render_2.js` | Fachada azul + letrero POL + sirena estroboscópica | ✅ Sirena |
+| `fire` | Estación Bomberos | `render_2.js` | Ladrillo + portón rojo + llama fleteante animada | ✅ Llama |
+| `hospital` | Hospital | `render_2.js` | Estructura blanca + Cruz Roja + helipuerto H | ❌ |
+| `school` | Escuela | `render_2.js` | Fachada escolar + tejado + campanario y reloj | ❌ |
+| `city_hall` | Ayuntamiento | `render_3.js` | Fachada cívica + 4 columnas + cúpula dorada + bandera flameando | ✅ Bandera |
+| `market` | Mercado Central | `render_3.js` | Toldos franjeados rojo/blanco + puestos multicolor | ❌ |
+| `transit` | Estación Tránsito | `render_3.js` | Bahía de buses + marquesina + indicador neón BUS | ✅ Indicador |
+| `stadium` | Estadio Deportivo | `render_3.js` | Graderías + cancha de fútbol + 4 focos reflectores | ✅ Focos |
+| `cemetery` | Cementerio | `render_3.js` | Pasto oscuro + senderos + lápidas de piedra + cipreses | ❌ |
 
 ---
 
-## Tabla de priorización
+## 🚗 Entidades Móviles — Vehículos (`vehicles.js`)
 
-| 🔴 1 | Variantes de road (H/V/cruce) | Alto — calles más detalladas |
-| 🟡 2 | Añadir tile `city_hall` | Medio — nuevo tipo zona pública |
-| 🟢 3 | Sistema de autos `js/vehicles.js` | Medio — movimiento vial |
-| 🟢 4 | Mejoras a peatones (animación pasos) | Medio — caminata realista |
-| ⚪ 5 | Tiles decorativos (fuente, flores) | Bajo — variedad ambiental |
+Los vehículos transitan automáticamente por el carril derecho respetando las vías (`ROAD`, `BRIDGE`, `TRANSIT`):
 
----
-
-## Patrón estándar para agregar un tile Canvas 2D
-
-### 1. Constante en `js/constants.js`
-
-```js
-const T = {
-  // ...existentes...
-  POLICE: 'police',
-};
-```
-
-### 2. Case en `js/render_1.js` (función drawTile)
-
-```js
-case T.POLICE:
-  // Base
-  ctx.fillStyle = '#1d4ed8';
-  ctx.fillRect(wx, wy, ts, ts);
-  // Edificio
-  ctx.fillStyle = '#1e3a8a';
-  ctx.fillRect(wx + ts*0.1, wy + ts*0.25, ts*0.8, ts*0.7);
-  // Letrero
-  if (ts >= 16) {
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.max(7, ts*0.28)}px monospace`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('PD', wx + ts/2, wy + ts*0.55);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  }
-  // Sirena (animada)
-  if (Math.sin(t * 4) > 0) {
-    ctx.fillStyle = 'rgba(239,68,68,0.8)';
-    ctx.beginPath();
-    ctx.arc(wx + ts*0.5, wy + ts*0.2, ts*0.08, 0, Math.PI*2);
-    ctx.fill();
-  }
-  break;
-```
-
-### 3. Nombre en `js/ui_1.js` (TILE_NAMES)
-
-```js
-const TILE_NAMES = {
-  // ...existentes...
-  [T.POLICE]: 'Comisaría',
-};
-```
-
-### 4. Costo en `js/constants.js` si es colocable por el jugador
-
-```js
-const TOOL_COSTS = {
-  // ...existentes...
-  police: 800,
-};
-```
-
-### 5. Botón en `components/toolbar.html`
-
-```html
-<button class="tool-btn" data-tool="police" title="Comisaría ($800)">🚔</button>
-```
+| Categoría | Tipo (`type`) | Nombre ES | Técnica Canvas |
+|-----------|---------------|-----------|----------------|
+| **Clase Baja** | `compact` | Compacto Económico | Hatchback verde turquesa compacto |
+| | `pickup_old` | Pickup de Trabajo | Camioneta café rústica con caja trasera y carga |
+| **Clase Media** | `sedan` | Sedán Familiar | Sedán elegante gris plata con parabrisas |
+| | `suv` | Camioneta SUV | SUV robusto gris oscuro con portaequipajes de techo |
+| | `minivan` | Minivan Familiar | Minivan azul marino alargada |
+| **Clase Alta** | `sports` | Deportivo de Lujo | Supercar rojo aerodinámico con alerón negro |
+| | `limo` | Limusina Ejecutiva | Limusina extra larga negra con cristales tintados |
+| | `electric` | EV Eléctrico Neón | Auto blanco perlado con franja neón azul brillante |
+| **Servicios** | `taxi` | Taxi Urbano | Carrocería amarilla con letrero negro |
+| | `police` | Patrulla Policía | Carrocería azul/blanca con sirena roja/azul animada |
+| | `ambulance` | Ambulancia | Carrocería blanca con cruz roja |
+| | `truck` | Camión Carga | Cabina roja + gran contenedor plateado corrugado |
+| | `bus` | Autobús Urbano | Carrocería azul larga + techo blanco + filas de ventanas |
 
 ---
 
-## Reglas para agentes IA
+## 🚶 Entidades Móviles — Peatones (`pedestrians.js`)
 
-```yaml
-# MOTOR GRÁFICO:
-  - TODO es Canvas 2D: fillRect, arc, strokeRect, ellipse, fillText
-  - NO usar drawImage(), NO crear Image(), NO referenciar archivos PNG externos
-  - NO sugerir sprite sheets ni texturas externas
+Peatones clasificados por tipo y rol social con oscilación de paso `sin(t)` y tonos de piel variados:
 
-# ANTES de implementar un tile nuevo:
-  - Verificar que NO existe ya en render_1.js o render_2.js
-  - Seguir el patrón estándar de 5 pasos de arriba
-  - Mantener < 20 líneas de Canvas por tile para no superar el límite de 200 líneas/archivo
-
-# ANIMACIONES permitidas (Canvas 2D):
-  - Usar `t` (gameTime en segundos) que llega como parámetro a drawTile()
-  - Patrón: Math.sin(t * velocidad + offset_posicion)
-  - Ejemplos existentes: water (HSL oscilante), bldg-i (humo), bldg-c (futura: luz antena)
-
-# PARA PEATONES:
-  - Modificar solo js/pedestrians.js
-  - Respetar el sistema de colores por distrito (periferia/centro/industrial)
-  - Animación de pasos: oscilar posición con sin(gameTime * velocidad_ped)
-
-# PARA VEHÍCULOS (futuro js/vehicles.js):
-  - Misma estructura que pedestrians.js
-  - Moverse solo en tiles road/bridge
-  - Color por tipo: sedan=gris, taxi=amarillo, police=azul/blanco
-
-# CONVENCIÓN de IDs de tile:
-  - Terreno: grass, water, road, bridge, sand, tree, park
-  - Zonas: zone-r, zone-c, zone-i
-  - Edificios: bldg-r, bldg-c, bldg-i
-  - Infraestructura: power, police, fire, hospital
-  - Todo en minúsculas con guión
-```
+| Tipo (`pedType`) | Rol / Clase | Apariencia Visual |
+|------------------|-------------|-------------------|
+| `worker` | Obrero (Baja) | Casco de seguridad amarillo + uniforme azul |
+| `casual` | Casual (Media) | Vestimenta informal en variados colores de acento |
+| `executive` | Ejecutivo (Alta) | Traje elegante oscuro con corbata |
+| `student` | Estudiante | Mochila morada en la espalda + ropa ligera |
+| `elder` | Anciano | Cabello canoso + bastón de madera + ritmo lento |
+| `tourist` | Turista | Sombrero de sol + cámara fotográfica colgada |
+| `police` | Policía | Uniforme oficial azul oscuro + gorra |
+| `child` | Niño/a | Escala pequeña + movimientos ágiles |
 
 ---
 
-## Archivos de motor relacionados
+## 📊 Estado de Cobertura
+- **Tiles de Terreno / Zonas**: 100% Completado (10/10)
+- **Edificios por Clase/Nivel**: 100% Completado (12/12)
+- **Servicios y Cívicos**: 100% Completado (10/10)
+- **Vehículos**: 100% Completado (13/13)
+- **Peatones**: 100% Completado (8/8)
+- **Vista Previa Interactiva**: Disponible en [preview_tiles.html](file:///home/netss/Projects/Metropolica/preview_tiles.html)
 
-| Archivo | Responsabilidad |
-|---------|----------------|
-| `js/constants.js` | Constantes `T.*`, `TOOL_COSTS` |
-| `js/render_1.js` | `drawTile()` — grass, water, road, bridge, tree, park, sand, zones, bldg-r |
-| `js/render_2.js` | `drawTile()` — bldg-c, bldg-i, power + render loop |
-| `js/pedestrians.js` | Dibujo y movimiento de peatones (Canvas 2D arc) |
-| `js/main.js` | Game loop, init(), evolveCityNaturally() |
-| `js/map.js` | Generación procedural del mapa |
-| `js/input_1.js` | placeTile(), tool system |
-| `js/ui_1.js` | TILE_NAMES, inspectTile(), renderDistricts() |
-| `src/rendering/gridPrimitives.ts` | Sistema TS legacy — referencia de tiles pendientes (police, fire) |
+## Auditoría del renderer actual — 2026-07-21
+
+La ruta activa es `frontend/src/lib/isoRenderer.ts` + `frontend/src/lib/buildingSprites.ts` y usa
+Canvas 2D procedural; no carga sprites externos. Todos los tipos que puede producir
+`generateInitialMap()` tienen una ruta activa: `grass`, `water`, `sand`, `tree`, `road`, `bridge`,
+`park`, `power`, `bldg-r`, `bldg-c`, `bldg-i`, `zone-r`, `zone-c` y `zone-i`.
+
+La implementación activa tiene tiers `0|1|2`, no cuatro niveles: tier 0 es lote/silueta, tier 1
+es edificio bajo y tier 2 es edificio desarrollado. Las casas ocupadas reciben además el perfil
+real visible del hogar y se dibujan como casa, dúplex o apartamento según tamaño/ingreso. Las
+especialidades `hospital` y `mall-government` reutilizan el asset comercial con su variante
+procedural correspondiente. Los vehículos activos son `compact`, `pickup_old`, `sedan`, `suv`,
+`minivan`, `sports`, `electric` y `limo`; las categorías taxi/patrulla/ambulancia/bus de la tabla
+histórica no son emitidas por el tránsito actual.
+
+Los tiles `bridge` tienen asset propio dentro de `drawRoad()`: agua visible alrededor del tablero,
+superficie de madera, líneas de circulación, barandales laterales y un soporte central. No se
+confunden con una carretera terrestre.
+
+Los edificios comerciales/industriales de borde acuático usan especialidades procedurales
+`fish-market`, `pier`, `customs` y `water-treatment`, seleccionadas por proximidad al agua. Se
+renderizan con paleta azul, señalética de muelle/mercado o depósitos de tratamiento y reutilizan la
+huella de los edificios existentes.

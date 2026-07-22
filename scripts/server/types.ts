@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { ScenarioRunner } from '../../src/simulation/scenario/index.ts';
+import type { GameLog } from './gameLog.ts';
 
 export type Request = IncomingMessage;
 export type Response = ServerResponse;
@@ -9,6 +10,9 @@ export type ServerContext = {
   rootDir: string;
   setGame(game: ScenarioRunner): void;
   setSavedGame(value: string | null): void;
+  gameLog: GameLog;
+  gameLogDirectory: string;
+  setGameLog(log: GameLog): void;
 };
 
 export type Handler = (req: Request, res: Response, context: ServerContext) => Promise<boolean> | boolean;

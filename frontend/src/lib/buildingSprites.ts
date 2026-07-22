@@ -1,6 +1,7 @@
 import { ISO_TILE_H, ISO_TILE_W } from './isoMath.ts';
 
-type DrawArgs = { ctx: CanvasRenderingContext2D; px: number; py: number; zoom: number; seed?: number };
+type DrawArgs = { ctx: CanvasRenderingContext2D; px: number; py: number; zoom: number; seed?: number; night?: boolean; time?: number };
+export type HousingProfile = { income: number; householdSize: number };
 type Tier = 0 | 1 | 2;
 export const PROCEDURAL_DETAIL_ZOOM = 1;
 const silhouetteCache = new Map<string, Path2D>();
@@ -79,24 +80,40 @@ function lot({ ctx, px, py, zoom }: DrawArgs, color: string) {
   ctx.fillStyle = color; ctx.fillRect(cx - 2 * zoom, base - hh, 4 * zoom, 2 * zoom);
 }
 
-function house(args: DrawArgs, tier: Tier) {
+function house(args: DrawArgs, tier: Tier, housing?: HousingProfile) {
   const { ctx, zoom, seed = 0 } = args;
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'r', tier);
   if (tier === 0) return lot(args, palettes.residential[0]);
   const v = buildingVariant(seed);
   const roof = roofs[v];
   const { cx, base, hw, hh } = footprint(args, palettes.residential[tier], roof);
-  const height = (tier === 1 ? 12 : 25) * zoom;
+  const apartment = (housing?.householdSize ?? 0) >= 4 || (housing?.income ?? 0) >= 2500;
+  const duplex = !apartment && ((housing?.householdSize ?? 0) >= 3 || (housing?.income ?? 0) >= 1500);
+  const height = (tier === 1 ? 12 : apartment ? 34 : duplex ? 25 : 18) * zoom;
   ctx.fillStyle = tier === 1 ? '#5d9866' : '#7fbd72';
   ctx.fillRect(cx - hw * .6, base - hh - height, hw * 1.2, height);
-  ctx.fillStyle = '#d7e3c0';
+  ctx.fillStyle = args.night ? '#ffe9a3' : '#d7e3c0';
   const wx = cx - hw * (.45 - v * .08);
   for (let y = base - hh - height + 5 * zoom; y < base - hh - 2 * zoom; y += 8 * zoom) ctx.fillRect(wx, y, 3 * zoom, 3 * zoom);
   ctx.fillStyle = roof;
   ctx.beginPath(); ctx.moveTo(cx - hw * .75, base - hh - height); ctx.lineTo(cx, base - hh - height - 7 * zoom); ctx.lineTo(cx + hw * .75, base - hh - height); ctx.closePath(); ctx.fill();
+  if (duplex || apartment) {
+    ctx.fillStyle = '#d7e3c0';
+    for (let floor = 1; floor < (apartment ? 4 : 3); floor++) ctx.fillRect(cx - hw * .48, base - hh - height + floor * 8 * zoom, hw * .96, 2 * zoom);
+  }
   if (v !== 1) {
     ctx.fillStyle = '#5a3f2d';
     ctx.fillRect(cx + (v === 0 ? -hw * .45 : hw * .25), base - hh - height - 4 * zoom, 3 * zoom, 6 * zoom);
+  }
+  if (args.night) {
+    const chimneyX = cx + hw * .28, chimneyY = base - hh - height - 3 * zoom;
+    ctx.fillStyle = '#5a3f2d'; ctx.fillRect(chimneyX, chimneyY, 3 * zoom, 5 * zoom);
+    ctx.fillStyle = 'rgba(220, 228, 220, .32)';
+    const smokePhase = (args.time ?? 0) / 700 + seed;
+    for (let puff = 0; puff < 3; puff++) {
+      const drift = Math.sin(smokePhase + puff) * 2 * zoom;
+      ctx.beginPath(); ctx.arc(chimneyX + 1.5 * zoom + drift, chimneyY - (puff + 1) * 4 * zoom, (2 + puff * .7) * zoom, 0, Math.PI * 2); ctx.fill();
+    }
   }
 }
 
@@ -133,13 +150,33 @@ function factory(args: DrawArgs, tier: Tier) {
   for (let x = cx - hw * .6; x < cx + hw * .35; x += 10 * zoom) ctx.fillRect(x, base - hh - height + 5 * zoom, 5 * zoom, 4 * zoom);
 }
 
-function specialtyBuilding(args: DrawArgs, tier: Tier, kind: 'hospital' | 'mall-government') {
+type BuildingSpecialty = 'hospital' | 'mall-government' | 'fish-market' | 'pier' | 'customs' | 'water-treatment';
+function specialtyBuilding(args: DrawArgs, tier: Tier, kind: BuildingSpecialty) {
   const { ctx, zoom } = args;
-  if (zoom < PROCEDURAL_DETAIL_ZOOM) return specialtySilhouette(args, tier, kind);
-  const base = kind === 'hospital' ? '#d8e6e1' : '#55a9bd';
-  const accent = kind === 'hospital' ? '#d9364b' : '#f0c85a';
+  if (zoom < PROCEDURAL_DETAIL_ZOOM) return specialtySilhouette(args, tier, kind === 'hospital' || kind === 'mall-government' ? kind : 'hospital');
+  const waterfront = kind === 'fish-market' || kind === 'pier' || kind === 'customs' || kind === 'water-treatment';
+  const base = kind === 'hospital' ? '#d8e6e1' : waterfront ? '#3e8292' : '#55a9bd';
+  const accent = kind === 'hospital' ? '#d9364b' : kind === 'water-treatment' ? '#8bd8e8' : kind === 'fish-market' ? '#f0c85a' : '#f0c85a';
   const { cx, base: ground, hw, hh } = footprint(args, base, accent);
-  const height = (tier === 0 ? 8 : tier === 1 ? 15 : 30) * zoom;
+  const height = (tier === 0 ? 0 : tier === 1 ? 15 : 30) * zoom;
+  if (!height) {
+    ctx.fillStyle = accent;
+    if (kind === 'hospital') {
+      ctx.fillRect(cx - 2 * zoom, ground - hh - 7 * zoom, 4 * zoom, 12 * zoom);
+      ctx.fillRect(cx - 6 * zoom, ground - hh - 3 * zoom, 12 * zoom, 4 * zoom);
+    } else if (kind === 'mall-government') {
+      ctx.fillRect(cx - 7 * zoom, ground - hh - 5 * zoom, 14 * zoom, 3 * zoom);
+      ctx.fillRect(cx - 4 * zoom, ground - hh - 8 * zoom, 3 * zoom, 6 * zoom);
+      ctx.fillRect(cx + 1 * zoom, ground - hh - 8 * zoom, 3 * zoom, 6 * zoom);
+    } else {
+      ctx.fillStyle = accent;
+      ctx.fillRect(cx - 7 * zoom, ground - hh - 5 * zoom, 14 * zoom, 3 * zoom);
+      ctx.fillRect(cx - 2 * zoom, ground - hh - 10 * zoom, 4 * zoom, 8 * zoom);
+      if (kind === 'water-treatment') { ctx.strokeStyle = '#d7f7ff'; ctx.strokeRect(cx - 8 * zoom, ground - hh - 13 * zoom, 16 * zoom, 8 * zoom); }
+      if (kind === 'pier') { ctx.strokeStyle = '#d7b46a'; ctx.beginPath(); ctx.moveTo(cx, ground - hh - 8 * zoom); ctx.lineTo(cx, ground + 3 * zoom); ctx.stroke(); }
+    }
+    return;
+  }
   ctx.fillStyle = base; ctx.fillRect(cx - hw * .72, ground - hh - height, hw * 1.44, height);
   ctx.fillStyle = accent; ctx.fillRect(cx - hw * .72, ground - hh - height, hw * 1.44, 4 * zoom);
   ctx.fillStyle = kind === 'hospital' ? '#f7f3e8' : '#183b57';
@@ -176,9 +213,9 @@ export function drawPark(args: DrawArgs) {
   }
 }
 
-export function drawBuilding(type: string, tier: Tier, args: DrawArgs, specialty?: 'hospital' | 'mall-government') {
+export function drawBuilding(type: string, tier: Tier, args: DrawArgs, specialty?: BuildingSpecialty, housing?: HousingProfile) {
   if (specialty) return specialtyBuilding(args, tier, specialty);
-  if (type === 'bldg-r' || type === 'zone-r') return house(args, tier);
+  if (type === 'bldg-r' || type === 'zone-r') return house(args, tier, housing);
   if (type === 'bldg-c' || type === 'zone-c') return shop(args, tier);
   if (type === 'bldg-i' || type === 'zone-i') return factory(args, tier);
 }

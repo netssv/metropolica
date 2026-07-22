@@ -51,7 +51,19 @@ export function signalState(axis: 'horizontal' | 'vertical', time: number): Sign
   return axis === 'vertical' ? 'yellow' : 'red';
 }
 
+/** Visual state uses the exact same phase as movement decisions. */
+export function signalVisualState(axis: 'horizontal' | 'vertical', time: number): { state: SignalState; color: string } {
+  const state = signalState(axis, time);
+  return { state, color: state === 'green' ? '#38d26f' : state === 'yellow' ? '#ffd447' : '#f04d55' };
+}
+
 export function isRedSignal(graph: RoadGraph, node: RoadNode, time: number, axis: 'horizontal' | 'vertical') {
   const neighbors = graph.get(key(node.col, node.row)) ?? [];
   return neighbors.length >= 3 && signalState(axis, time) !== 'green';
+}
+
+/** Minimum progress gap for two cars sharing the same road node. */
+export function hasVehicleAhead(trips: Array<{ id: string; route: RoadNode[]; progress: number }>, trip: { id: string; route: RoadNode[]; progress: number }, routeIndex: number, minimumGap = 0.18) {
+  const node = trip.route[routeIndex];
+  return trips.some(other => other.id !== trip.id && other.route[routeIndex]?.col === node?.col && other.route[routeIndex]?.row === node?.row && other.progress > trip.progress && other.progress - trip.progress < minimumGap);
 }

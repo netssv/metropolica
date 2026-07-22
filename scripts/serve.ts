@@ -9,11 +9,14 @@ import { handleCommands } from './server/apiCommands.ts';
 import { handlePersistence } from './server/apiPersistence.ts';
 import { handleStaticFiles } from './server/staticFiles.ts';
 import type { ServerContext } from './server/types.ts';
+import { GameLog } from './server/gameLog.ts';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 let game = new ScenarioRunner(ciudadDividida);
 let savedGame: string | null = null;
-const context: ServerContext = { get game() { return game; }, get savedGame() { return savedGame; }, rootDir, setGame: value => { game = value; }, setSavedGame: value => { savedGame = value; } };
+const gameLogDirectory = join(rootDir, '.metropolica', 'logs', 'games');
+let gameLog = new GameLog(gameLogDirectory, game, 'server_start');
+const context: ServerContext = { get game() { return game; }, get savedGame() { return savedGame; }, rootDir, gameLogDirectory, get gameLog() { return gameLog; }, setGame: value => { game = value; }, setSavedGame: value => { savedGame = value; }, setGameLog: value => { gameLog = value; } };
 
 async function handleRequest(req: any, res: any) {
   setCors(res);
@@ -25,6 +28,6 @@ async function handleRequest(req: any, res: any) {
 }
 
 const server = createServer(handleRequest);
-const PORT = 3000;
-setInterval(() => game.advance(game.clock.currentSpeed / 1440), 2500);
+const PORT = Number(process.env.METROPOLICA_BACKEND_PORT ?? 3000);
+setInterval(() => { game.advance(game.clock.currentSpeed / 1440); gameLog.snapshot(game); }, 2500);
 server.listen(PORT, () => console.log(`Metropolica Server running at http://localhost:${PORT}`));
