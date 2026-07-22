@@ -205,6 +205,17 @@ function isRoadAt(map: TileMap | undefined, col: number, row: number): boolean {
   return type === T.ROAD || type === T.BRIDGE;
 }
 
+/** Reserve a narrow visual verge between buildings and the street. */
+function buildingStreetInset(map: TileMap | undefined, col: number, row: number, zoom: number) {
+  const neighbors = [[col, row - 1, 32, 16], [col + 1, row, -32, 16], [col, row + 1, -32, -16], [col - 1, row, 32, -16]]
+    .filter(([nc, nr]) => isRoadAt(map, nc, nr));
+  if (!neighbors.length) return { x: 0, y: 0 };
+  const direction = neighbors.reduce((sum, [, , x, y]) => ({ x: sum.x - Number(x), y: sum.y - Number(y) }), { x: 0, y: 0 });
+  const length = Math.max(1, Math.hypot(direction.x, direction.y));
+  const inset = Math.min(7, 5.5 * zoom);
+  return { x: direction.x / length * inset, y: direction.y / length * inset };
+}
+
 function roadConnections(map: TileMap | undefined, col: number, row: number) {
   return {
     north: isRoadAt(map, col, row - 1),
@@ -225,11 +236,15 @@ function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: n
     // not as a brown road painted over land.
     ctx.fillStyle = '#1a5f8a';
     ctx.beginPath(); ctx.moveTo(px + hw, py); ctx.lineTo(px + hw * 2, py + hh); ctx.lineTo(px + hw, py + hh * 2); ctx.lineTo(px, py + hh); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#75624d';
+    ctx.fillStyle = '#3d444b';
     // The bridge deck must have the exact same footprint as a road tile,
     // including when this tile is a water intersection.
     ctx.beginPath(); ctx.moveTo(px + hw, py); ctx.lineTo(px + hw * 2, py + hh);
     ctx.lineTo(px + hw, py + hh * 2); ctx.lineTo(px, py + hh); ctx.closePath(); ctx.fill();
+    // Inset concrete deck: the water border makes the crossing legible at a glance.
+    ctx.fillStyle = '#596169';
+    ctx.beginPath(); ctx.moveTo(px + hw, py + hh * .16); ctx.lineTo(px + hw * 1.84, py + hh);
+    ctx.lineTo(px + hw, py + hh * 1.84); ctx.lineTo(px + hw * .16, py + hh); ctx.closePath(); ctx.fill();
   } else {
     ctx.fillStyle = '#30363b';
     ctx.beginPath();
@@ -257,9 +272,12 @@ function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: n
   }
   ctx.setLineDash([]);
   if (bridge) {
-    // Wooden side rails and piers are the bridge-specific visual asset.
-    ctx.strokeStyle = '#4a3427'; ctx.lineWidth = Math.max(1.5, zoom * 1.5);
-    for (const [connected, end] of arms) {
+    // Bright guardrails and structural piers are the bridge-specific visual asset.
+    ctx.strokeStyle = '#d7b56b'; ctx.lineWidth = Math.max(1.5, zoom * 1.7);
+    // Suspension cables follow only the bridge's longitudinal axis. Drawing
+    // every road arm made turns and junctions look like non-parallel cables.
+    const spanArms = horizontal ? [arms[1], arms[3]] : [arms[0], arms[2]];
+    for (const [connected, end] of spanArms) {
       if (!connected) continue;
       const dx = end.x - center.x, dy = end.y - center.y;
       const length = Math.max(1, Math.hypot(dx, dy));
@@ -267,8 +285,42 @@ function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: n
       ctx.beginPath(); ctx.moveTo(center.x + nx, center.y + ny); ctx.lineTo(end.x + nx, end.y + ny); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(center.x - nx, center.y - ny); ctx.lineTo(end.x - nx, end.y - ny); ctx.stroke();
     }
-    ctx.fillStyle = '#5b4030';
-    ctx.fillRect(center.x - 2 * zoom, center.y + 3 * zoom, 4 * zoom, 8 * zoom);
+    ctx.strokeStyle = 'rgba(31,39,45,.7)'; ctx.lineWidth = Math.max(1, zoom);
+    for (const [connected, end] of arms) {
+      if (!connected) continue;
+      const dx = end.x - center.x, dy = end.y - center.y;
+      ctx.beginPath(); ctx.moveTo(center.x + dx * .28, center.y + dy * .28);
+      ctx.lineTo(center.x + dx * .28 + 5 * zoom, center.y + dy * .28); ctx.stroke();
+    }
+    ctx.fillStyle = '#71808a'; ctx.fillRect(center.x - 2.5 * zoom, center.y + 2 * zoom, 5 * zoom, 7 * zoom);
+    ctx.fillStyle = '#39444b'; ctx.fillRect(center.x - 4 * zoom, center.y + 8 * zoom, 8 * zoom, 2 * zoom);
+
+    // Suspension cables: the shallow arch and repeated hangers make this read
+    // as a bridge even when the deck is only one isometric tile wide.
+    // Use a two-tone cable so the suspension profile survives downsampling.
+    ctx.strokeStyle = '#111b21'; ctx.lineWidth = Math.max(2.2, zoom * 2.4);
+    for (const [connected, end] of spanArms) {
+      if (!connected) continue;
+      const dx = end.x - center.x, dy = end.y - center.y;
+      const length = Math.max(1, Math.hypot(dx, dy));
+      // Keep the two cables over the sidewalks, outside the traffic lane.
+      const nx = -dy / length * 10 * zoom, ny = dx / length * 10 * zoom;
+      const start = { x: center.x + dx * 0, y: center.y + dy * 0 };
+      const finish = { x: center.x + dx, y: center.y + dy };
+      // A shallow, long-span curve keeps the cable anchored at the street ends
+      // instead of making it look like a small loop in the middle of the tile.
+      const peak = { x: center.x + dx * .5, y: center.y + dy * .5 - 4 * zoom };
+      for (const side of [-1, 1]) {
+        const sx = start.x + nx * side, sy = start.y + ny * side;
+        const ex = finish.x + nx * side, ey = finish.y + ny * side;
+        const cx = peak.x + nx * side, cy = peak.y + ny * side;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(cx, cy, ex, ey); ctx.stroke();
+        ctx.strokeStyle = '#e2b85f'; ctx.lineWidth = Math.max(1, zoom * 1.05);
+        ctx.beginPath(); ctx.moveTo(sx, sy - .5 * zoom); ctx.quadraticCurveTo(cx, cy - .5 * zoom, ex, ey - .5 * zoom); ctx.stroke();
+        ctx.strokeStyle = '#111b21'; ctx.lineWidth = Math.max(2.2, zoom * 2.4);
+      }
+      ctx.strokeStyle = '#111b21'; ctx.lineWidth = Math.max(2.2, zoom * 2.4);
+    }
   }
 }
 
@@ -363,8 +415,10 @@ export function drawIsoTile(
   if (tile.type === T.BLDG_R || tile.type === T.BLDG_C || tile.type === T.BLDG_I ||
       tile.type === T.ZONE_R || tile.type === T.ZONE_C || tile.type === T.ZONE_I) {
     const visualNight = tile.isNight ?? (night || (typeof document !== 'undefined' && document.body.dataset.metropolicaNight === 'true'));
-    drawBuilding(tile.type, tile.growthTier ?? 0, { ctx, px, py, zoom, seed, night: visualNight, time }, tile.specialty, tile.housing);
-    drawBusinessAccent(ctx, tile.type, col, row, px, py, zoom, tile.businessAccentTiles);
+    const inset = buildingStreetInset(map, col, row, zoom);
+    const buildingPx = px + inset.x, buildingPy = py + inset.y;
+    drawBuilding(tile.type, tile.growthTier ?? 0, { ctx, px: buildingPx, py: buildingPy, zoom, seed, night: visualNight, time }, tile.specialty, tile.housing);
+    drawBusinessAccent(ctx, tile.type, col, row, buildingPx, buildingPy, zoom, tile.businessAccentTiles);
     if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
     return;
   }

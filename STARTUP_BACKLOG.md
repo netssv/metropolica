@@ -73,3 +73,7 @@ Entries are appended below in timestamp order. Historical entries are retained f
   - Backend log: /home/netss/Projects/Metropolica/.metropolica/logs/backend.log
   - Frontend log: /home/netss/Projects/Metropolica/.metropolica/logs/frontend.log
 
+
+- [2026-07-22T11:14:04-06:00] Another Metropolica launcher is active (PID 15627); it was not terminated
+  - Backend log: /home/cachy/Proyectos/metropolica/.metropolica/logs/backend.log
+  - Frontend log: /home/cachy/Proyectos/metropolica/.metropolica/logs/frontend.log
