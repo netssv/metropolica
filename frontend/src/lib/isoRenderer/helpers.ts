@@ -67,18 +67,7 @@ export function isPlainRoadAt(map: TileMap | undefined, col: number, row: number
 }
 
 export function buildingStreetInset(map: TileMap | undefined, col: number, row: number, zoom: number, project?: (c:number,r:number)=>{x:number;y:number}) {
-  const neighbors = [[col, row - 1], [col + 1, row], [col, row + 1], [col - 1, row]]
-    .filter(([nc, nr]) => isRoadAt(map, nc, nr));
-
-  if (!neighbors.length) return { x: 0, y: 0 };
-  const center = project ? project(col, row) : { x: 0, y: 0 };
-  const direction = neighbors.reduce((sum, [nc, nr]) => {
-    const p = project ? project(Number(nc), Number(nr)) : center;
-    return { x: sum.x - (p.x - center.x), y: sum.y - (p.y - center.y) };
-  }, { x: 0, y: 0 });
-  const length = Math.max(1, Math.hypot(direction.x, direction.y));
-  const inset = Math.min(7, 5.5 * zoom);
-  return { x: (direction.x / length) * inset, y: (direction.y / length) * inset };
+  return { x: 0, y: 0 };
 }
 
 export function drawCrisisTint(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: number) {

@@ -77,3 +77,11 @@ Entries are appended below in timestamp order. Historical entries are retained f
 - [2026-07-22T11:14:04-06:00] Another Metropolica launcher is active (PID 15627); it was not terminated
   - Backend log: /home/cachy/Proyectos/metropolica/.metropolica/logs/backend.log
   - Frontend log: /home/cachy/Proyectos/metropolica/.metropolica/logs/frontend.log
+
+- [2026-07-23T10:19:44-06:00] Could not select distinct backend/frontend ports
+  - Backend log: /home/cachy/Proyectos/metropolica/.metropolica/logs/backend.log
+  - Frontend log: /home/cachy/Proyectos/metropolica/.metropolica/logs/frontend.log
+
+- [2026-07-23T14:01:43-06:00] Could not select distinct backend/frontend ports
+  - Backend log: /home/cachy/Proyectos/metropolica/.metropolica/logs/backend.log
+  - Frontend log: /home/cachy/Proyectos/metropolica/.metropolica/logs/frontend.log

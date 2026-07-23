@@ -61,6 +61,8 @@ test("coverage penalty is refreshed on the existing weekly social-risk cadence",
   new SocialRiskLoop({ treasury: 0, debt: 0, approval: 0.8, taxRate: 0, auditLevel: 0,
     corruptionRisk: 0, districts: [d], organizations: [] }, { d: [] }, clock, new CommandDispatcher());
   d.services.safety = 1;
+  d.services.hospitales = utility(1);
+  d.services.bomberos = utility(1);
   clock.advance(7);
   assert.equal(d.social.crimeRisk, 0);
 });

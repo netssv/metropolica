@@ -38,7 +38,8 @@ export function drawIsoTile(
     return { x: p.x * zoom + offsetX, y: p.y * zoom + offsetY };
   },
   time = 0,
-  night = false
+  night = false,
+  rotation = 0
 ) {
   const { x: px, y: py } = project(col, row);
 
@@ -95,16 +96,20 @@ export function drawIsoTile(
       (night ||
         (typeof document !== 'undefined' &&
           document.body.dataset.metropolicaNight === 'true'));
-    const inset = buildingStreetInset(map, col, row, zoom, project);
-    const buildingPx = px + inset.x;
-    const buildingPy = py + inset.y;
-    drawBuilding(
-      tile.type,
-      tile.growthTier ?? 0,
-      { ctx, px: buildingPx, py: buildingPy, zoom, seed, night: visualNight, time, houseRole: tile.houseRole, tileCol: col, tileRow: row, project },
-      tile.specialty,
-      tile.housing
-    );
+    // Snap strictly to the projected tile origin (0 variable street inset displacement)
+    const buildingPx = px;
+    const buildingPy = py;
+    try {
+      drawBuilding(
+        tile.type,
+        tile.growthTier ?? 0,
+        { ctx, px: buildingPx, py: buildingPy, zoom, seed, night: visualNight, time, houseRole: tile.houseRole, tileCol: col, tileRow: row, project, rotation },
+        tile.specialty,
+        tile.housing
+      );
+    } catch (err) {
+      console.error(`Render error for tile ${col}:${row} (${tile.type}):`, err);
+    }
     drawBusinessAccent(
       ctx,
       tile.type,

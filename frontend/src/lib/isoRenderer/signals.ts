@@ -15,40 +15,56 @@ export function drawTrafficSignalHeads(
   project?: (col: number, row: number) => { x: number; y: number }
 ) {
   if (zoom < 0.6 || !isRoadAt(map, col, row)) return;
-  const arms = [
-    { col: col, row: row - 1, axis: 'vertical' as const, offset: { x: 16 * zoom, y: -10 * zoom } },
-    { col: col + 1, row: row, axis: 'horizontal' as const, offset: { x: 16 * zoom, y: 10 * zoom } },
-    { col: col, row: row + 1, axis: 'vertical' as const, offset: { x: -16 * zoom, y: 10 * zoom } },
-    { col: col - 1, row: row, axis: 'horizontal' as const, offset: { x: -16 * zoom, y: -10 * zoom } }
+  
+  // Check neighbors to ensure this tile is an intersection
+  const neighbors = [
+    { col: col, row: row - 1, axis: 'vertical' as const },
+    { col: col + 1, row: row, axis: 'horizontal' as const },
+    { col: col, row: row + 1, axis: 'vertical' as const },
+    { col: col - 1, row: row, axis: 'horizontal' as const }
   ].filter((arm) => isRoadAt(map, arm.col, arm.row));
 
-  if (arms.length < 3) return;
-  const cx = px + (ISO_TILE_W * zoom) / 2;
-  const cy = py + (ISO_TILE_H * zoom) / 2;
+  if (neighbors.length < 3) return;
 
-  for (const arm of arms) {
-    const visual = signalVisualState(arm.axis, time);
-    const neighbor = project?.(arm.col, arm.row);
-    const self = project?.(col, row);
-    const dx = neighbor && self ? neighbor.x - self.x : arm.offset.x;
-    const dy = neighbor && self ? neighbor.y - self.y : arm.offset.y;
-    const length = Math.max(1, Math.hypot(dx, dy));
-    const sx = cx + (dx / length) * 16 * zoom;
-    const sy = cy + (dy / length) * 16 * zoom;
+  // Render 2 signals per 4-way / 3-way intersection on the corner sidewalks
+  const pCenter = project ? project(col, row) : { x: px, y: py };
+  const hw = (ISO_TILE_W * zoom) / 2;
+  const hh = (ISO_TILE_H * zoom) / 2;
+  const cx = pCenter.x + hw;
+  const cy = pCenter.y + hh;
 
+  // Signal 1: North Corner Sidewalk
+  const sig1 = signalVisualState('vertical', time);
+  const s1x = cx;
+  const s1y = cy - hh * 0.7;
+
+  // Signal 2: East Corner Sidewalk
+  const sig2 = signalVisualState('horizontal', time);
+  const s2x = cx + hw * 0.7;
+  const s2y = cy;
+
+  const signals = [
+    { x: s1x, y: s1y, color: sig1.color },
+    { x: s2x, y: s2y, color: sig2.color }
+  ];
+
+  for (const s of signals) {
+    // Post
     ctx.strokeStyle = '#20252a';
-    ctx.lineWidth = Math.max(1, zoom * 1.2);
+    ctx.lineWidth = Math.max(1.2, zoom * 1.5);
     ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(sx, sy - 8 * zoom);
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(s.x, s.y - 12 * zoom);
     ctx.stroke();
 
+    // Signal housing box
     ctx.fillStyle = '#161b20';
-    ctx.fillRect(sx - 3 * zoom, sy - 14 * zoom, 6 * zoom, 7 * zoom);
+    ctx.fillRect(s.x - 3 * zoom, s.y - 20 * zoom, 6 * zoom, 9 * zoom);
 
-    ctx.fillStyle = visual.color;
+    // Light bulb
+    ctx.fillStyle = s.color;
     ctx.beginPath();
-    ctx.arc(sx, sy - 10.5 * zoom, 2 * zoom, 0, Math.PI * 2);
+    ctx.arc(s.x, s.y - 15.5 * zoom, 2.3 * zoom, 0, Math.PI * 2);
     ctx.fill();
   }
 }

@@ -6,7 +6,7 @@ const frontendRoot = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: import('next').NextConfig = {
   // Keep Turbopack scoped to this app; the repository also has a root lockfile.
   turbopack: {
-    root: frontendRoot
+    root: path.resolve(frontendRoot, '..')
   },
   async rewrites() {
     return [

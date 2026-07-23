@@ -1,115 +1,120 @@
 /**
  * Duplex renderer – draws a wide two-unit townhouse spanning 2 adjacent tiles.
- * Called only on the duplex anchor tile; the partner tile is silent.
- *
- * In isometric space a horizontal duplex (same row, col and col+1) looks like
- * two diamonds side-by-side, so we use the anchor px/py as origin and offset
- * the second unit by one tile width.
+ * Matches the Level 2 Sage Green reference art with dual gables, canopy, and concrete steps.
  */
 import type { DrawArgs } from './types.ts';
-import { PROCEDURAL_DETAIL_ZOOM, palettes, roofs } from './constants.ts';
+import { PROCEDURAL_DETAIL_ZOOM } from './constants.ts';
 import { ISO_TILE_W, ISO_TILE_H } from '../isoMath.ts';
-
-const WALL_A  = '#6ea87a';   // left unit wall
-const WALL_B  = '#5d9866';   // right unit wall
-const ROOF_A  = '#b65d4c';
-const ROOF_B  = '#8a5a3c';
-const WIN     = '#ffe9a3';   // lit window
-const WIN_DAY = '#d7e3c0';   // day window
+import {
+  DUPLEX_PALETTE,
+  drawFacadeDoor,
+  drawFacadeWindow,
+  drawFacadeCanopy,
+  drawFacadeSteps,
+} from './duplexRenderUtils.ts';
+import { drawDuplexRoof } from './duplexRoofUtils.ts';
 
 export function drawDuplex(args: DrawArgs, direction: 'horizontal' | 'vertical' = 'horizontal') {
-  const { ctx, px, py, zoom, seed = 0, night = false, project, tileCol, tileRow } = args;
+  const { ctx, px, py, zoom, night = false, project, tileCol, tileRow } = args;
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return;
 
-  const TW = ISO_TILE_W * zoom;   // full tile bounding width
-  const TH = ISO_TILE_H * zoom;   // full tile bounding height
-  const height = 22 * zoom;
+  const TW = ISO_TILE_W * zoom;
+  const TH = ISO_TILE_H * zoom;
 
-  // ── unit A (left/anchor tile) ─────────────────────────────────────────────
-  const cxA = px + TW / 2;
-  const baseA = py + TH;
-  const hwA = TW * 0.3;
-  const hhA = TH * 0.3;
+  // Tile A (anchor) & Tile B (partner) projected origins
+  const pA = project && tileCol != null && tileRow != null
+    ? project(tileCol, tileRow)
+    : { x: px, y: py };
 
-  // Ground diamond A
-  ctx.fillStyle = palettes.residential[1];
-  ctx.beginPath();
-  ctx.moveTo(cxA, py);
-  ctx.lineTo(px + TW, py + TH / 2);
-  ctx.lineTo(cxA, baseA);
-  ctx.lineTo(px, py + TH / 2);
-  ctx.closePath();
-  ctx.fill();
-
-  // Wall A
-  ctx.fillStyle = WALL_A;
-  ctx.fillRect(cxA - hwA * 0.9, baseA - hhA - height, hwA * 1.8, height);
-
-  // Windows A
-  const winColor = night ? WIN : WIN_DAY;
-  ctx.fillStyle = winColor;
-  for (let wy = baseA - hhA - height + 4 * zoom; wy < baseA - hhA - 4 * zoom; wy += 8 * zoom) {
-    ctx.fillRect(cxA - hwA * 0.55, wy, 3 * zoom, 3 * zoom);
-    ctx.fillRect(cxA + hwA * 0.15, wy, 3 * zoom, 3 * zoom);
-  }
-
-  // Shared party-wall divider line
-  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-  ctx.lineWidth = Math.max(1, zoom * 0.8);
-  ctx.beginPath();
-  ctx.moveTo(cxA + hwA * 0.92, baseA - hhA - height);
-  ctx.lineTo(cxA + hwA * 0.92, baseA - hhA);
-  ctx.stroke();
-
-  // Roof A
-  ctx.fillStyle = ROOF_A;
-  ctx.beginPath();
-  ctx.moveTo(cxA - hwA, baseA - hhA - height);
-  ctx.lineTo(cxA, baseA - hhA - height - 8 * zoom);
-  ctx.lineTo(cxA + hwA, baseA - hhA - height);
-  ctx.closePath();
-  ctx.fill();
-
-  // ── unit B (adjacent tile) ───────────────────────────────────────────────
-  // Resolve its position via the camera so it stays attached to its map cell
-  // after a quarter-turn instead of using the original-view screen offset.
-  const neighbor = project && tileCol != null && tileRow != null
+  const pB = project && tileCol != null && tileRow != null
     ? project(tileCol + (direction === 'horizontal' ? 1 : 0), tileRow + (direction === 'vertical' ? 1 : 0))
     : { x: px + (direction === 'horizontal' ? TW / 2 : -TW / 2), y: py + TH / 2 };
-  const pxB = neighbor.x;
-  const pyB = neighbor.y;
-  const cxB = pxB + TW / 2;
-  const baseB = pyB + TH;
-  const hwB = TW * 0.3;
-  const hhB = TH * 0.3;
 
-  // Ground diamond B
-  ctx.fillStyle = palettes.residential[2];
+  // Coordinates of 2-tile front facade ground line (SE edge)
+  const x0 = pA.x + TW / 2;
+  const y0 = pA.y + TH;
+  const x1 = pB.x + TW;
+  const y1 = pB.y + TH / 2;
+
+  // SW Side Wall ground line (lit face)
+  const swX0 = pA.x;
+  const swY0 = pA.y + TH / 2;
+
+  const height = 26 * zoom;
+  const peak   = 10 * zoom;
+  const baseH  = 2  * zoom;
+  // depthX/depthY = TW/2, TH/2 so the building back-edge aligns with
+  // the top vertices of tile A and tile B — exact 2-tile footprint.
+  const depthX = TW / 2;
+  const depthY = TH / 2;
+
+  const fY0 = y0 - baseH;
+  const fY1 = y1 - baseH;
+  const swY0B = swY0 - baseH;
+
+  // 1. Dark Stone Foundation Base across both tiles
+  ctx.fillStyle = DUPLEX_PALETTE.baseDark;
   ctx.beginPath();
-  ctx.moveTo(cxB, pyB);
-  ctx.lineTo(pxB + TW, pyB + TH / 2);
-  ctx.lineTo(cxB, baseB);
-  ctx.lineTo(pxB, pyB + TH / 2);
+  ctx.moveTo(swX0, swY0);
+  ctx.lineTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.lineTo(x1 - depthX, y1 - depthY);
+  ctx.lineTo(swX0 + depthX, swY0 - depthY);
   ctx.closePath();
   ctx.fill();
 
-  // Wall B
-  ctx.fillStyle = WALL_B;
-  ctx.fillRect(cxB - hwB * 0.9, baseB - hhB - height, hwB * 1.8, height);
-
-  // Windows B
-  ctx.fillStyle = winColor;
-  for (let wy = baseB - hhB - height + 4 * zoom; wy < baseB - hhB - 4 * zoom; wy += 8 * zoom) {
-    ctx.fillRect(cxB - hwB * 0.55, wy, 3 * zoom, 3 * zoom);
-    ctx.fillRect(cxB + hwB * 0.15, wy, 3 * zoom, 3 * zoom);
-  }
-
-  // Roof B
-  ctx.fillStyle = ROOF_B;
+  // 2. Sage Green SW Lit Wall
+  ctx.fillStyle = DUPLEX_PALETTE.wallLight;
   ctx.beginPath();
-  ctx.moveTo(cxB - hwB, baseB - hhB - height);
-  ctx.lineTo(cxB, baseB - hhB - height - 8 * zoom);
-  ctx.lineTo(cxB + hwB, baseB - hhB - height);
+  ctx.moveTo(swX0, swY0B);
+  ctx.lineTo(x0, fY0);
+  ctx.lineTo(x0, fY0 - height);
+  ctx.lineTo(swX0, swY0B - height);
   ctx.closePath();
   ctx.fill();
+
+  // SW Side Wall Windows — use the correct SW wall vector: swY0B → fY0
+  const swWinH = 5 * zoom;
+  const swWinY = height * 0.62;
+  drawFacadeWindow(ctx, swX0, swY0B, x0, fY0, 0.20, 0.20, swWinY, swWinH, zoom, night);
+  drawFacadeWindow(ctx, swX0, swY0B, x0, fY0, 0.60, 0.20, swWinY, swWinH, zoom, night);
+
+  // 3. Sage Green SE Front Facade Wall (Shaded Face across 2 tiles)
+  ctx.fillStyle = DUPLEX_PALETTE.wallShade;
+  ctx.beginPath();
+  ctx.moveTo(x0, fY0);
+  ctx.lineTo(x1, fY1);
+  ctx.lineTo(x1, fY1 - height);
+  ctx.lineTo(x0, fY0 - height);
+  ctx.closePath();
+  ctx.fill();
+
+  // 4. Dual Gable Roof across both tiles
+  drawDuplexRoof(
+    ctx,
+    x0, fY0 - height,
+    x1, fY1 - height,
+    depthX, depthY,
+    peak, zoom
+  );
+
+  // 5. Single centered entrance: Steps, Canopy & Twin Doors on SE Facade
+  const canopyY    = height * 0.38;
+  const stepDepthX = TW * 0.03;
+  const stepDepthY = TH * 0.03;
+
+  drawFacadeSteps(ctx,  x0, fY0, x1, fY1, 0.32, 0.68, stepDepthX, stepDepthY, zoom);
+  drawFacadeCanopy(ctx, x0, fY0, x1, fY1, 0.30, 0.70, canopyY, TW * 0.08, TH * 0.08, zoom);
+  drawFacadeDoor(ctx,   x0, fY0, x1, fY1, 0.37, 0.09, 8 * zoom, zoom);
+  drawFacadeDoor(ctx,   x0, fY0, x1, fY1, 0.54, 0.09, 8 * zoom, zoom);
+
+  // 6. Upper Floor Framed Windows across 2-Tile SE Facade
+  const seWinY = height * 0.64;
+  const seWinH = 6 * zoom;
+  drawFacadeWindow(ctx, x0, fY0, x1, fY1, 0.06, 0.11, seWinY, seWinH, zoom, night);
+  drawFacadeWindow(ctx, x0, fY0, x1, fY1, 0.20, 0.11, seWinY, seWinH, zoom, night);
+  drawFacadeWindow(ctx, x0, fY0, x1, fY1, 0.45, 0.11, seWinY, seWinH, zoom, night);
+  drawFacadeWindow(ctx, x0, fY0, x1, fY1, 0.59, 0.11, seWinY, seWinH, zoom, night);
+  drawFacadeWindow(ctx, x0, fY0, x1, fY1, 0.74, 0.11, seWinY, seWinH, zoom, night);
+  drawFacadeWindow(ctx, x0, fY0, x1, fY1, 0.87, 0.11, seWinY, seWinH, zoom, night);
 }
