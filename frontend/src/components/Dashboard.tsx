@@ -129,14 +129,42 @@ function CitizensTab({ simState }: { simState: any }) {
   );
 }
 
+function PedestriansTab({ simState }: { simState: any }) {
+  const { fetchState } = useGameContext();
+  const citizens = Object.values(simState?.citizens ?? {}).flat() as any[];
+  const activePeds = citizens.filter(c => c.homeTile && c.workTile).slice(0, 60);
+
+  function inspectPedestrian(citizen: any) {
+    window.dispatchEvent(new CustomEvent('inspect:pedestrian', { detail: citizen }));
+  }
+
+  return (
+    <div className="citizens-summary">
+      <div className="cit-stat"><span>Transeúntes en aceras</span><strong>{activePeds.length}</strong></div>
+      <div className="cit-section-title">Localizar e inspeccionar transeúnte</div>
+      <div className="citizen-track-list">
+        {activePeds.map(citizen => (
+          <div className="citizen-track-row" key={citizen.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <span>
+              <strong>{citizen.id}</strong>
+              <small style={{ marginLeft: 6 }}>({citizen.occupation ?? 'Peatón'})</small>
+            </span>
+            <button className="ctrl-btn" onClick={() => inspectPedestrian(citizen)}>🔍 Inspeccionar</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { simState } = useGameContext();
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<'districts' | 'opinion' | 'citizens'>('districts');
+  const [tab, setTab] = useState<'districts' | 'opinion' | 'citizens' | 'pedestrians'>('districts');
 
   useEffect(() => {
     const navigate = (event: Event) => {
-      const requested = (event as CustomEvent<'districts' | 'opinion' | 'citizens'>).detail;
+      const requested = (event as CustomEvent<'districts' | 'opinion' | 'citizens' | 'pedestrians'>).detail;
       if (open && tab === requested) {
         setOpen(false);
         return;
@@ -164,9 +192,9 @@ export default function Dashboard() {
       </button>
       <div id="hud-bottom-content">
         <div id="dash-tabs">
-          {(['districts', 'opinion', 'citizens'] as const).map(t => (
+          {(['districts', 'opinion', 'citizens', 'pedestrians'] as const).map(t => (
             <button key={t} className={`dash-tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-              {t === 'districts' ? 'DISTRITOS' : t === 'opinion' ? 'OPINIÓN' : 'CIUDADANOS'}
+              {t === 'districts' ? 'DISTRITOS' : t === 'opinion' ? 'OPINIÓN' : t === 'citizens' ? 'CIUDADANOS' : 'TRANSEÚNTES'}
             </button>
           ))}
         </div>
@@ -179,6 +207,9 @@ export default function Dashboard() {
           </div>
           <div className={`dash-pane ${tab === 'citizens' ? 'active' : ''}`}>
             <CitizensTab simState={simState} />
+          </div>
+          <div className={`dash-pane ${tab === 'pedestrians' ? 'active' : ''}`}>
+            <PedestriansTab simState={simState} />
           </div>
         </div>
       </div>

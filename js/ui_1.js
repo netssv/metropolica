@@ -17,19 +17,41 @@ const TILE_NAMES = {
 function inspectTile(col, row) {
   const tile = tileMap[row][col];
   const insp = document.getElementById('hud-tile-inspector');
-  document.getElementById('inspector-title').textContent = TILE_NAMES[tile.type] || tile.type;
+  const isHome = tile.type === T.BLDG_R;
+  const isWorkplace = [T.BLDG_C, T.BLDG_I].includes(tile.type);
+  const citizens = Object.values(simState.citizens ?? {}).flat();
+  const residents = citizens.filter(c => c.homeTile?.col === col && c.homeTile?.row === row);
+  const workers = citizens.filter(c => c.workTile?.col === col && c.workTile?.row === row);
+  const specialtyNames = {
+    hospital: 'Salud y atención médica', 'mall-government': 'Gobierno y servicios',
+    'fish-market': 'Mercado de pescado', pier: 'Puerto y pesca', customs: 'Aduana',
+    'water-treatment': 'Tratamiento de agua'
+  };
+  const typeLabel = tile.specialty ? specialtyNames[tile.specialty] : TILE_NAMES[tile.type] || tile.type;
+  const levelLabel = tile.level > 0 ? `Nivel ${tile.level}` : 'Infraestructura';
+  document.getElementById('inspector-title').innerHTML = `
+    <span class="inspector-kicker">${isHome ? 'VIVIENDA' : isWorkplace ? 'ACTIVIDAD ECONÓMICA' : 'INFRAESTRUCTURA'}</span>
+    <strong>${typeLabel}</strong>`;
 
   const d = (simState.districts ?? []).find(d => d.id === tile.owner);
   document.getElementById('inspector-body').innerHTML = `
-    <div class="inspector-row"><span>Posición</span><span>${col}, ${row}</span></div>
-    <div class="inspector-row"><span>Tipo</span><span>${tile.type}</span></div>
-    <div class="inspector-row"><span>Distrito</span><span>${(tile.owner || '—').replace(/_/g,' ')}</span></div>
-    ${tile.level > 0 ? `<div class="inspector-row"><span>Nivel</span><span>${tile.level}</span></div>` : ''}
+    <div class="inspector-location"><span class="inspector-pin">⌖</span><span>${(tile.owner || 'Sin distrito').replace(/_/g,' ')}</span><small>${col}, ${row}</small></div>
+    <div class="inspector-highlights">
+      ${isHome ? `<div class="inspector-highlight"><strong>${residents.length}</strong><span>residentes</span></div>` : ''}
+      ${isWorkplace ? `<div class="inspector-highlight"><strong>${workers.length}</strong><span>trabajadores</span></div>` : ''}
+      <div class="inspector-highlight"><strong>${tile.level > 0 ? tile.level : '—'}</strong><span>${tile.level > 0 ? 'nivel' : 'nivel'}</span></div>
+    </div>
+    <div class="inspector-section-label">Detalles del lugar</div>
+    <div class="inspector-row"><span>Clasificación</span><span>${levelLabel}</span></div>
+    ${tile.specialty ? `<div class="inspector-row"><span>Rubro</span><span>${typeLabel}</span></div>` : ''}
+    ${isHome && residents.length ? `<div class="inspector-section-label">Personas que viven aquí</div><div class="inspector-people">${residents.slice(0, 5).map(c => `<div class="inspector-person"><span class="person-avatar">${(c.id || '?').slice(-1)}</span><span><b>${c.id}</b><small>${c.age} años · ${c.occupation || 'Sin ocupación'}</small></span></div>`).join('')}</div>` : ''}
+    ${isWorkplace && workers.length ? `<div class="inspector-section-label">Actividad laboral</div><div class="inspector-people">${workers.slice(0, 5).map(c => `<div class="inspector-person"><span class="person-avatar work">⌁</span><span><b>${c.occupation || c.id}</b><small>${c.id} · ${c.workplaceType || 'trabajador'}</small></span></div>`).join('')}</div>` : ''}
+    ${isHome && residents.length > 5 ? `<div class="inspector-more">+ ${residents.length - 5} residentes más</div>` : ''}
+    ${isWorkplace && workers.length > 5 ? `<div class="inspector-more">+ ${workers.length - 5} trabajadores más</div>` : ''}
     ${d ? `
-      <hr class="inspector-divider">
+      <div class="inspector-section-label">Contexto del distrito</div>
       <div class="inspector-row"><span>Población</span><span>${d.population.toLocaleString()}</span></div>
       <div class="inspector-row"><span>Aprobación</span><span>${Math.round(d.approval*100)}%</span></div>
-      <div class="inspector-row"><span>Crimen</span><span>${Math.round(d.social.crimeRisk*100)}%</span></div>
     ` : ''}
   `;
   document.getElementById('inspector-actions').innerHTML = `

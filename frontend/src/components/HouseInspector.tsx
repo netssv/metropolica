@@ -5,17 +5,20 @@ type Props = { house: any; onClose: () => void; onSelectCitizen: (citizen: any) 
 
 export default function HouseInspector({ house, onClose, onSelectCitizen }: Props) {
   const income = house.income ?? 0;
-  return <div className="citizen-inspector">
-    <button onClick={onClose} aria-label="Cerrar">×</button>
-    <strong>Casa residencial</strong>
-    <span>Ubicación: ({house.col}, {house.row})</span>
-    <span>Distrito: {house.owner ?? '—'}</span>
-    <span>Tipo: {house.householdSize >= 4 || income >= 2500 ? 'Edificio de apartamentos' : house.householdSize >= 3 || income >= 1500 ? 'Dúplex' : 'Casa individual'}</span>
-    <span>Ingreso del hogar: ${Math.round(income).toLocaleString()}</span>
-    <span>Habitantes: {house.occupants.length}</span>
+  const type = house.householdSize >= 3 ? 'Edificio de apartamentos' : house.householdSize >= 2 ? 'Dúplex' : 'Casa individual';
+  return <div className="citizen-inspector house-inspector">
+    <button className="inspector-close" onClick={onClose} aria-label="Cerrar">×</button>
+    <small className="inspector-eyebrow">VIVIENDA RESIDENCIAL</small>
+    <strong className="inspector-title">{type}</strong>
+    <div className="inspector-location">⌖ {house.owner ?? 'Sin distrito'} <small>({house.col}, {house.row})</small></div>
+    <div className="inspector-highlights">
+      <div><b>{house.occupants.length}</b><span>habitantes</span></div>
+      <div><b>${Math.round(income).toLocaleString()}</b><span>ingreso hogar</span></div>
+    </div>
+    <small className="inspector-section">PERSONAS QUE VIVEN AQUÍ</small>
     {house.occupants.length === 0 && <span>No hay ciudadanos asignados a esta vivienda.</span>}
-    {house.occupants.map((citizen: any) => <button className="ctrl-btn" key={citizen.id} onClick={() => onSelectCitizen(citizen)}>
-      {citizen.id} · {citizen.occupation ?? 'Ciudadano'} · {citizen.level === 3 ? vehicleForIncome(income, citizen.householdId ?? citizen.id) : 'sin vehículo'}
+    {house.occupants.map((citizen: any) => <button className="inspector-person" key={citizen.id} onClick={() => onSelectCitizen(citizen)}>
+      <span className="person-avatar">{(citizen.id ?? '?').slice(-1)}</span><span><b>{citizen.id}</b><small>{citizen.occupation ?? 'Ciudadano'} · {citizen.level === 3 ? vehicleForIncome(income, citizen.householdId ?? citizen.id) : 'sin vehículo'}</small></span>
     </button>)}
   </div>;
 }

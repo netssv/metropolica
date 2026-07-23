@@ -1,27 +1,158 @@
-import { gridToIso, ISO_TILE_H, ISO_TILE_W } from '../isoMath.ts';
+/**
+ * transit.ts
+ * Orchestrates citizen vehicle trips: state sync, per-frame update, and rendering.
+ * Delegates to transitTrip, transitArrival, and transitRender modules.
+ */
 import type { Projection } from '../projection.ts';
-import { buildRoadGraph, findRoadRoute, roadSignature, type RoadGraph } from '../trafficSystem.ts';
-import { destinationScreenPoint } from './destination.ts';
+import { roadSignature } from '../trafficSystem.ts';
 import { commuteDelayState } from './commuteDelay.ts';
-import { drawVehicle, vehicleForIncome } from '../vehicleSprites.ts';
-import { laneOffset } from './roadTraffic.ts';
-import { enforceVisualGap, followingGap, MINIMUM_QUEUE_GAP, trafficDecision } from './trafficBehavior.ts';
-import { recordTrafficDiagnostic } from './trafficDiagnostics.ts';
-import { signalState } from '../trafficSystem.ts';
+import { getPedestrianCrossingPresence } from '../pedestrianSprites.ts';
+import { trafficDecision, trafficStateForDecision } from './trafficBehavior.ts';
+import type { VehicleWaitReason, Point } from './roadTrafficTypes.ts';
+import {
+  key, nearestRoad, currentActivity, makeTrip, rebuildTrips,
+  type Trip,
+} from './transitTrip.ts';
+import { advanceArrival, tryDequeueTrip, maybeEmitConsumption } from './transitArrival.ts';
+import { renderVehicle, type RenderedVehicle } from './transitRender.ts';
+import type { RoadGraph } from '../trafficSystem.ts';
+
+/** Real-time milliseconds between each vehicle's departure when a new activity batch starts.
+ *  Simulates natural staggered departure so vehicles don't all rush at once. */
+const DEPARTURE_STAGGER_MS = 600;
+
 type RoutineBlock = { activity: string; startHour: number; endHour: number; location: 'home' | 'work' | 'commercial' | 'refuel' };
-type Tile = { type?: string } | null; type Point = { col: number; row: number };
+type Tile = { type?: string } | null;
 type Citizen = { id: string; householdId?: string; level: number; homeTile?: Point; workTile?: Point; commercialTile?: Point; refuelTile?: Point; routine?: RoutineBlock[] };
-type Trip = { id: string; route: Point[]; target: Point; progress: number; arrival: number; activityKey: string };
-function key(p: Point) { return `${p.col},${p.row}`; }
-function nearestRoad(graph: RoadGraph, p: Point, exclude?: Point) { return [...graph.keys()].map(v => { const [col, row] = v.split(',').map(Number); return { col, row }; }).filter(v => !exclude || key(v) !== key(exclude)).sort((a, b) => Math.abs(a.col - p.col) + Math.abs(a.row - p.row) - Math.abs(b.col - p.col) - Math.abs(b.row - p.row))[0]; }
+
 export function createCitizenTransit() {
-  let graphSignatureValue = '', rosterSignature = '', activitySignature = '', lastTime = 0, syncedDay: number | undefined, syncedHour: number | undefined; let graph: RoadGraph = new Map();
-  const trips = new Map<string, Trip>(), positions = new Map<string, { cx: number; cy: number }>(), sent = new Set<string>();
-  const currentActivity = (c: Citizen, hour: number) => c.routine?.find(b => hour >= b.startHour && hour < b.endHour);
-  const rebuild = (map: Tile[][], citizens: Citizen[], day: number, hour: number, preserve: boolean) => { const oldTrips = new Map(trips); graph = buildRoadGraph(map); graphSignatureValue = roadSignature(map); const next = new Map<string, Trip>(); for (const c of citizens.filter(v => v.level === 3 && v.homeTile && v.workTile)) { const a = currentActivity(c, hour), activityKey = `${day}:${a?.startHour ?? -1}:${a?.endHour ?? -1}:${a?.activity ?? 'commute'}`, old = preserve ? oldTrips.get(c.id) : undefined; const target = a?.location === 'home' ? c.homeTile! : a?.location === 'commercial' ? (c.commercialTile ?? c.workTile!) : a?.location === 'refuel' ? (c.refuelTile ?? c.workTile!) : c.workTile!; const startsAtHome = !old && a?.location === 'home' && hour < 7; const from = old && old.route.length ? nearestRoad(graph, old.route[Math.min(old.route.length - 1, Math.floor(old.progress * (old.route.length - 1)))]) : nearestRoad(graph, startsAtHome ? c.homeTile! : target === c.homeTile ? c.workTile! : c.homeTile!); // At simulation start, midnight sleep means the citizen is already home; do not create a phantom return trip.
-    const to = nearestRoad(graph, target); if (!from || !to) { next.set(c.id, { id: c.id, route: [], target, progress: 1, arrival: old?.arrival ?? 0, activityKey }); continue; } let route = findRoadRoute(graph, from, to); if (!route.length && key(from) !== key(to)) route = [from, to]; const sameDestination = old && key(old.target) === key(target); const preserveTrip = Boolean(old && (old.activityKey === activityKey || sameDestination)); if (route.length) next.set(c.id, { id: c.id, route, target, progress: route.length === 1 ? 1 : (preserveTrip ? old!.progress : 0), arrival: preserveTrip ? old!.arrival ?? 0 : 0, activityKey }); } trips.clear(); for (const [id, trip] of next) trips.set(id, trip); };
-  return { syncState(day: number, hour: number) { syncedDay = day; syncedHour = hour; }, updateAndDraw(ctx: CanvasRenderingContext2D, time: number, ox: number, oy: number, zoom: number, map: Tile[][], citizens: Citizen[], day: number, hour = 0, simulationSpeed = 1, render = true, project?: Projection, selectedCitizenId?: string, postCommand?: (command: Record<string, unknown>) => Promise<unknown>, householdIncomes: Record<string, number> = {}) {
-    day = syncedDay ?? day; hour = syncedHour ?? hour; const active = citizens.filter(c => c.level === 3); const roster = active.map(c => `${c.id}:${c.homeTile?.col},${c.homeTile?.row}:${c.workTile?.col},${c.workTile?.row}`).join('|'); const activities = `${day}|${active.map(c => { const a = currentActivity(c, hour); return `${c.id}:${a?.startHour ?? -1}:${a?.endHour ?? -1}:${a?.activity ?? 'commute'}`; }).join('|')}`; if (roadSignature(map) !== graphSignatureValue || roster !== rosterSignature || activities !== activitySignature) { rebuild(map, citizens, day, hour, roster === rosterSignature); rosterSignature = roster; activitySignature = activities; } const dt = lastTime ? Math.min(.05, (time - lastTime) / 1000) * simulationSpeed : 0; lastTime = time;
-    const renderedVehiclePositions: Array<{ cx: number; cy: number; laneKey: string }> = []; for (const trip of trips.values()) { const wasArrived = trip.progress >= 1; const decision = trafficDecision([...trips.values()], trip, graph, time); const progressBefore = trip.progress; if (decision.speed > 0) trip.progress = Math.min(1, trip.progress + dt / 8 * decision.speed); if (wasArrived) trip.arrival = Math.min(1, trip.arrival + dt / 1.2); const citizen = citizens.find(c => c.id === trip.id); const a = citizen ? currentActivity(citizen, hour) : undefined; if (!wasArrived && trip.progress >= 1 && (a?.activity === 'compras' || a?.activity === 'refuel') && postCommand && citizen?.householdId) { const marker = `${citizen.id}:${a.activity}:${day}`; if (!sent.has(marker)) { sent.add(marker); void postCommand({ type: 'CITIZEN_CONSUMPTION', cohortId: citizen.householdId, districtId: (citizen as any).districtId, activity: a.activity === 'compras' ? 'shop' : 'refuel', day }); } } const routePosition = trip.progress * (trip.route.length - 1), segment = Math.min(trip.route.length - 2, Math.floor(routePosition)), local = routePosition - segment, from = trip.route[segment], to = trip.route[segment + 1]; const previousRoutePosition = progressBefore * (trip.route.length - 1); const previousSegment = Math.min(trip.route.length - 2, Math.floor(previousRoutePosition)); const segmentId = from && to ? `${from.col},${from.row}>${to.col},${to.row}` : 'arrival'; const direction = from && to ? `${to.col - from.col},${to.row - from.row}` : 'arrival'; const destination = trip.progress >= 1 && project ? destinationScreenPoint(trip.id, trip.target, project, zoom) : undefined; const roadPoint = from && to ? project ? project(from.col + (to.col - from.col) * local, from.row + (to.row - from.row) * local) : (() => { const iso = gridToIso(from.col + (to.col - from.col) * local, from.row + (to.row - from.row) * local); return { x: iso.x * zoom + ox, y: iso.y * zoom + oy }; })() : undefined; const lane = laneOffset(from, to, zoom); const cx = (destination?.x ?? (roadPoint ? roadPoint.x + ISO_TILE_W * zoom / 2 : 0)) + lane.x, cy = (destination?.y ?? (roadPoint ? roadPoint.y + ISO_TILE_H * zoom / 2 : 0)) + lane.y; const laneKey = segmentId; const sameLane = renderedVehiclePositions.filter(other => other.laneKey === laneKey); const separated = enforceVisualGap({ x: cx, y: cy }, sameLane.map(other => ({ x: other.cx, y: other.cy })), Math.max(12, 18 * zoom)); const separatedCx = separated.x, separatedCy = separated.y; const ahead = [...trips.values()].filter(other => other.id !== trip.id && other.route.length > 1).map(other => { const op = other.progress * (other.route.length - 1), oi = Math.min(other.route.length - 2, Math.floor(op)), of = other.route[oi], ot = other.route[oi + 1]; return { other, oi, distance: op - oi - local }; }).filter(item => item.oi === segment && item.distance > 0 && item.other.route[segment]?.col === from?.col && item.other.route[segment]?.row === from?.row && item.other.route[segment + 1]?.col === to?.col && item.other.route[segment + 1]?.row === to?.row).sort((a, b) => a.distance - b.distance)[0]; const axis = from && to ? (from.row === to.row ? 'horizontal' : 'vertical') : 'horizontal'; const state = decision.reason === 'signal' ? 'stop' : decision.reason === 'yield' ? 'yield' : decision.reason === 'following' ? 'following' : 'normal'; recordTrafficDiagnostic({ vehicleId: trip.id, segmentId, direction, routeProgress: trip.progress, localProgress: local, laneOffset: lane, computedScreenPosition: { x: cx, y: cy }, renderedScreenPosition: { x: separatedCx, y: separatedCy }, speed: dt ? (trip.progress - progressBefore) / dt : 0, targetSpeed: decision.speed, maxSpeed: 1, distanceAhead: ahead?.distance ?? null, signal: from && to ? signalState(axis, time) : 'none', state, deltaSeconds: dt, simulationSpeed }); renderedVehiclePositions.push({ cx: separatedCx, cy: separatedCy, laneKey }); positions.set(trip.id, { cx: separatedCx, cy: separatedCy }); if (!render) continue; const nextProjected = from && to && project ? project(to.col, to.row) : undefined; const currentProjected = from && project ? project(from.col, from.row) : undefined; const heading = currentProjected && nextProjected ? Math.atan2(nextProjected.y - currentProjected.y, nextProjected.x - currentProjected.x) : 0; ctx.save(); ctx.translate(separatedCx, separatedCy - 6 * zoom); const arrivalScale = wasArrived ? Math.max(0, 1 - trip.arrival) : 1; ctx.scale(arrivalScale, arrivalScale); if (trip.id === selectedCitizenId) { ctx.beginPath(); ctx.arc(0, 0, Math.max(15, 20 * zoom), 0, Math.PI * 2); ctx.strokeStyle = '#fff3a3'; ctx.lineWidth = Math.max(2, 3 * zoom); ctx.shadowColor = '#ffd166'; ctx.shadowBlur = 10 * zoom; ctx.stroke(); } drawVehicle(ctx, vehicleForIncome(householdIncomes[citizen?.householdId ?? ''] ?? 0, citizen?.id ?? trip.id), zoom, heading); ctx.restore(); }
-  }, getCitizenAt(x: number, y: number, citizens: Citizen[]) { let closest: Citizen | undefined, distance = 24; for (const c of citizens) { const p = positions.get(c.id); if (!p) continue; const d = Math.hypot(p.cx - x, p.cy - y); if (d < distance) { distance = d; closest = c; } } return closest; }, getCitizenTripProgress(id: string) { return trips.get(id)?.progress; }, getCommuteDelayState(citizen: Citizen) { const trip = trips.get(citizen.id); return commuteDelayState(citizen.level, citizen.homeTile, citizen.workTile, trip?.route.length); } };
+  const graphRef = { value: new Map() as RoadGraph, signature: '' };
+  let rosterSignature = '', activitySignature = '';
+  let lastTime = 0, syncedDay: number | undefined, syncedHour: number | undefined;
+  let requestSequence = 0;
+  const sequence = () => requestSequence++;
+
+  const trips = new Map<string, Trip>();
+  const pending = new Map<string, { target: Point; activityKey: string; queuedAt: number }>();
+  const positions = new Map<string, { cx: number; cy: number }>();
+  const sent = new Set<string>();
+
+  const buildMakeTrip = (citizen: Citizen, target: Point, activityKey: string, from: Point, old?: Trip): Trip =>
+    makeTrip(graphRef.value, citizen, target, activityKey, from, sequence, old);
+
+  /** Rebuild the trip roster then stagger departures for all newly-created trips. */
+  const rebuildAndStagger = (map: Tile[][], citizens: Citizen[], day: number, hour: number, preserve: boolean, now: number) => {
+    const oldTrips = new Map(trips);
+    const next = rebuildTrips(map, citizens, day, hour, preserve, oldTrips, pending, graphRef, sequence);
+    trips.clear();
+    for (const [id, trip] of next) trips.set(id, trip);
+
+    // Group freshly created or newly started trips by their origin tile/node
+    const byOrigin = new Map<string, Trip[]>();
+    for (const trip of trips.values()) {
+      const old = oldTrips.get(trip.id);
+      const isSameTarget = old && key(old.target) === key(trip.target);
+      const isNewTrip = !old || !isSameTarget;
+      if (isNewTrip && trip.route.length >= 2) {
+        // Reset progress to 0 for a brand new trip so vehicle starts at origin building
+        trip.progress = 0;
+        trip.arrival = 0;
+        trip.state = 'queued';
+        const originKey = key(trip.route[0]);
+        const list = byOrigin.get(originKey) ?? [];
+        list.push(trip);
+        byOrigin.set(originKey, list);
+      }
+    }
+
+    // Stagger departure time for each vehicle queue waiting at the same origin location
+    for (const [, queue] of byOrigin) {
+      queue.sort((a, b) => a.queuedAt - b.queuedAt);
+      queue.forEach((t, index) => {
+        t.departureTime = now + index * DEPARTURE_STAGGER_MS;
+      });
+    }
+  };
+
+  return {
+    syncState(day: number, hour: number) { syncedDay = day; syncedHour = hour; },
+
+    updateAndDraw(
+      ctx: CanvasRenderingContext2D, time: number, ox: number, oy: number, zoom: number,
+      map: Tile[][], citizens: Citizen[], day: number, hour = 0, simulationSpeed = 1,
+      render = true, project?: Projection, selectedCitizenId?: string,
+      postCommand?: (command: Record<string, unknown>) => Promise<unknown>,
+      householdIncomes: Record<string, number> = {},
+    ) {
+      day = syncedDay ?? day;
+      hour = syncedHour ?? hour;
+      const active = citizens.filter(c => c.level === 3);
+      const roster = active.map(c => `${c.id}:${key(c.homeTile ?? { col: -1, row: -1 })}:${key(c.workTile ?? { col: -1, row: -1 })}`).join('|');
+      const activities = `${day}|${active.map(c => { const a = currentActivity(c, hour); return `${c.id}:${a?.startHour ?? -1}:${a?.endHour ?? -1}:${a?.activity ?? 'commute'}`; }).join('|')}`;
+
+      if (roadSignature(map) !== graphRef.signature || roster !== rosterSignature || activities !== activitySignature) {
+        rebuildAndStagger(map, citizens, day, hour, roster === rosterSignature, time);
+        rosterSignature = roster;
+        activitySignature = activities;
+      }
+
+      const dt = lastTime ? Math.min(0.05, (time - lastTime) / 1000) * simulationSpeed : 0;
+      lastTime = time;
+
+      const pedestrians = getPedestrianCrossingPresence(map, time, citizens);
+      const reservations = new Map<string, string>();
+      const rendered: RenderedVehicle[] = [];
+
+      for (const trip of trips.values()) {
+        // Vehicles waiting for their staggered departure slot are invisible (inside building).
+        if (trip.departureTime > time) continue;
+
+        const wasArrived = trip.progress >= 1;
+        const decision = trafficDecision([...trips.values()], trip, graphRef.value, time, { pedestrians, reservations });
+        const state = trafficStateForDecision(decision, trip, graphRef.value);
+        trip.state = state.state;
+        trip.waitReason = state.waitReason as VehicleWaitReason;
+
+        const before = trip.progress;
+
+        // Advance route progress for moving vehicles.
+        if (!wasArrived && decision.speed > 0) {
+          trip.progress = Math.min(1, trip.progress + (dt / 8) * decision.speed);
+        }
+
+        // Emit consumption event on first arrival frame.
+        maybeEmitConsumption(trip, wasArrived, citizens, hour, day, sent, postCommand);
+
+        // Run arrival animation (starts the same frame progress hits 1).
+        if (trip.progress >= 1) {
+          advanceArrival(trip, dt);
+        }
+
+        // Try to start queued next trip once unboarding animation completes.
+        tryDequeueTrip(trip, pending, citizens, graphRef.value, buildMakeTrip);
+
+        renderVehicle(
+          ctx, trip, rendered, positions,
+          ox, oy, zoom, dt, before, time, simulationSpeed,
+          decision.speed, decision.queueDepth, citizens, householdIncomes, render, project,
+        );
+      }
+    },
+
+    getCitizenAt(x: number, y: number, citizens: Citizen[]) {
+      let closest: Citizen | undefined, distance = 24;
+      for (const citizen of citizens) {
+        const p = positions.get(citizen.id);
+        if (!p) continue;
+        const d = Math.hypot(p.cx - x, p.cy - y);
+        if (d < distance) { distance = d; closest = citizen; }
+      }
+      return closest;
+    },
+    getCitizenTripProgress(id: string) { return trips.get(id)?.progress; },
+    getCitizenVehicleState(id: string) { return trips.get(id)?.state ?? 'idle'; },
+    getCommuteDelayState(citizen: Citizen) {
+      return commuteDelayState(citizen.level, citizen.homeTile, citizen.workTile, trips.get(citizen.id)?.route.length);
+    },
+  };
 }

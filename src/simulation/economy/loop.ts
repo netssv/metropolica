@@ -7,6 +7,7 @@ import { aggregateDistrictEconomy, summarizeEconomy, type EconomySnapshot } from
 import { clampRate } from "../formulas/economy.ts";
 import type { UtilityCoverage } from "../utilities/coverage.ts";
 import { censusCity } from "../tileCensus.ts";
+import { DEVELOPMENT_ECONOMY } from "../../../shared/economyBalance.ts";
 
 export type DistrictCohortMap = Record<string, HouseholdCohort[]>;
 
@@ -45,6 +46,9 @@ export class EconomyLoop {
       Object.assign(district, aggregateDistrictEconomy(district, outputs, this.proximityModifier?.(district.id) ?? 0));
     }
     this.latest = summarizeEconomy(allOutputs, this.city.taxRate);
-    this.city.treasury += this.latest.taxesCollected;
+    // Household income is monthly; the weekly simulation collects one quarter
+    // of the monthly tax total so public revenue stays in the same cadence as
+    // construction costs and the starting treasury.
+    this.city.treasury += this.latest.taxesCollected / DEVELOPMENT_ECONOMY.treasury.collectionsPerMonth;
   }
 }

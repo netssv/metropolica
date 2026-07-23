@@ -27,30 +27,35 @@ export function assignCommuteLocations(assigned: Record<string, Citizen[]>, dist
     const fallbackHomes = tiles.filter(t => t.type === 'grass');
       const fallbackWorks = tiles.filter(t => t.type === 'bldg-c' || t.type === 'bldg-i' || t.type === 'grass');
     const homeUsage = new Map<typeof tiles[number], number>(), workUsage = new Map<typeof tiles[number], number>();
-    const householdHomes = new Map<string, typeof tiles[number]>();
+    const retainedHomes = new Map<string, typeof tiles[number]>();
     for (const citizen of citizens) {
       if (!citizen.homeTile) continue;
       const existing = homes.find(tile => tile.col === citizen.homeTile!.col && tile.row === citizen.homeTile!.row);
-      if (existing && !householdHomes.has(citizen.householdId)) {
-        householdHomes.set(citizen.householdId, existing);
+      if (existing && (homeUsage.get(existing) ?? 0) < tileCapacity(existing)) {
+        retainedHomes.set(citizen.id, existing);
         homeUsage.set(existing, (homeUsage.get(existing) ?? 0) + 1);
       }
     }
     return [districtId, citizens.map(citizen => {
-      const assignedHome = householdHomes.get(citizen.householdId) ?? assignTile(homes, citizen.householdId, homeUsage) ?? (homes.length ? homes[stableIndex(citizen.id, homes.length)] : undefined);
-      if (assignedHome) householdHomes.set(citizen.householdId, assignedHome);
-      if (citizen.level !== 3) return assignedHome ? { ...citizen, homeTile: citizen.homeTile ?? { col: assignedHome.col, row: assignedHome.row } } : citizen;
+      // Citizens are individual residents at the initial population scale.  A home
+      // is selected per citizen so the seeded residential plots fill before any
+      // building receives a second resident through its capacity.
+      const assignedHome = retainedHomes.get(citizen.id)
+        ?? assignTile(homes, citizen.id, homeUsage)
+        ?? (homes.length ? homes[stableIndex(citizen.id, homes.length)] : undefined);
+      const resident = assignedHome ? { ...citizen, homeTile: { col: assignedHome.col, row: assignedHome.row } } : citizen;
+      if (resident.level !== 3) return resident;
       const workplace = workplaceFor(citizen);
       const commercial = assignTile(commercialWorks, citizen.id, workUsage);
       const refuel = assignTile(industrialWorks, `${citizen.id}:refuel`, workUsage) ?? commercial;
-      if (citizen.homeTile && citizen.workTile && citizen.workShift && citizen.workplaceType === workplace.label) return { ...citizen, commercialTile: citizen.commercialTile ?? (commercial && { col: commercial.col, row: commercial.row }), refuelTile: citizen.refuelTile ?? (refuel && { col: refuel.col, row: refuel.row }) };
-      if (citizen.homeTile && citizen.workTile) return { ...citizen, workShift: { startHour: 8, endHour: 16 }, workplaceType: workplace.label, commercialTile: commercial && { col: commercial.col, row: commercial.row }, refuelTile: refuel && { col: refuel.col, row: refuel.row } };
+      if (resident.homeTile && resident.workTile && resident.workShift && resident.workplaceType === workplace.label) return { ...resident, commercialTile: resident.commercialTile ?? (commercial && { col: commercial.col, row: commercial.row }), refuelTile: resident.refuelTile ?? (refuel && { col: refuel.col, row: refuel.row }) };
+      if (resident.homeTile && resident.workTile) return { ...resident, workShift: { startHour: 8, endHour: 16 }, workplaceType: workplace.label, commercialTile: commercial && { col: commercial.col, row: commercial.row }, refuelTile: refuel && { col: refuel.col, row: refuel.row } };
       const home = assignedHome ?? (homes.length ? undefined : fallbackHomes[stableIndex(citizen.id, fallbackHomes.length)]);
       const dedicatedWorks = workplace.specialty === 'hospital' ? hospitalWorks : workplace.specialty === 'mall-government' ? governmentWorks : [];
       const preferredWorks = dedicatedWorks.length ? dedicatedWorks : workplace.zone === 'bldg-i' ? industrialWorks : commercialWorks;
       const alternateWorks = workplace.zone === 'bldg-i' ? commercialWorks : industrialWorks;
       const work = assignTile(preferredWorks, citizen.id, workUsage) ?? assignTile(alternateWorks, `${citizen.id}:alternate`, workUsage) ?? assignTile(fallbackWorks, `${citizen.id}:fallback`, workUsage);
-      return home && work ? { ...citizen, homeTile: { col: home.col, row: home.row }, workTile: { col: work.col, row: work.row }, commercialTile: commercial && { col: commercial.col, row: commercial.row }, refuelTile: refuel && { col: refuel.col, row: refuel.row }, workShift: { startHour: 8, endHour: 16 }, workplaceType: workplace.label } : citizen;
+      return home && work ? { ...resident, homeTile: { col: home.col, row: home.row }, workTile: { col: work.col, row: work.row }, commercialTile: commercial && { col: commercial.col, row: commercial.row }, refuelTile: refuel && { col: refuel.col, row: refuel.row }, workShift: { startHour: 8, endHour: 16 }, workplaceType: workplace.label } : resident;
     })];
   }));
 }

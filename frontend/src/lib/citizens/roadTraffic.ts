@@ -6,6 +6,7 @@ export function laneOffset(from: Point | undefined, to: Point | undefined, zoom:
   const dx = to.col - from.col, dy = to.row - from.row;
   const screenDx = (dx - dy) * 32, screenDy = (dx + dy) * 16;
   const length = Math.max(1, Math.hypot(screenDx, screenDy));
-  const laneWidth = 5 * zoom;
+  const laneWidth = 7 * zoom;
   return { x: (-screenDy / length) * laneWidth, y: (screenDx / length) * laneWidth };
 }
+

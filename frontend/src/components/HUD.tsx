@@ -63,7 +63,7 @@ export default function HUD() {
     const hours = (targetHour - current + 24) % 24 || 24;
     void advanceHours(hours);
   };
-  const openDashboard = (tab: 'districts' | 'opinion' | 'citizens') => {
+  const openDashboard = (tab: 'districts' | 'opinion' | 'citizens' | 'pedestrians') => {
     window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: tab }));
   };
 
@@ -90,15 +90,18 @@ export default function HUD() {
       </button>
       <button className="hud-stat hud-stat-button" onClick={() => openDashboard('districts')} title="Abrir tesoro y finanzas">
         <span className="hud-label">TESORO</span>
-        <span className="hud-value accent-green">${treasury.toLocaleString()}</span>
+        <span className="hud-value accent-green">${(treasury ?? 0).toLocaleString()}</span>
       </button>
       <button className="hud-stat hud-stat-button" onClick={() => openDashboard('opinion')} title="Abrir aprobación y opinión ciudadana">
         <span className="hud-label">APROBACIÓN</span>
         <span className="hud-value">{(approval * 100).toFixed(0)}%</span>
       </button>
-      <button className="hud-stat hud-stat-button" onClick={() => openDashboard('citizens')} title="Ver ciudadanos activos e inactivos">
-        <span className="hud-label">POBLACIÓN</span>
-        <span className="hud-value">{activeCitizens}</span>
+      <button className="hud-stat hud-stat-button" onClick={() => openDashboard('citizens')} title="Ver mapa de ciudadanos: vehículos y peatones">
+        <span className="hud-label">POBLACIÓN ({Math.min(activeCitizens + 60, 90)})</span>
+        <span className="hud-value" style={{ fontSize: '0.85rem', display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <span>🚗 {Math.min(activeCitizens, 30)}</span>
+          <span>🚶 {Math.min(activeCitizens, 60)}</span>
+        </span>
       </button>
       <div className="hud-sep"></div>
       <div id="game-status" className="status-badge running">Activa</div>

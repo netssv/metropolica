@@ -21,10 +21,19 @@ export const T = {
   POWER:  'power',
 };
 
-export const TOOL_COSTS: Record<string, number> = {
-  'zone-r': 100, 'zone-c': 150, 'zone-i': 200,
-  road: 50, park: 75, power: 500, demolish: 25,
+export const DEVELOPMENT_ECONOMY = {
+  construction: {
+    'zone-r': 50,
+    'zone-c': 80,
+    'zone-i': 120,
+    road: 20,
+    park: 100,
+    power: 1500,
+    demolish: 10,
+  }
 };
+
+export const TOOL_COSTS: Record<string, number> = { ...DEVELOPMENT_ECONOMY.construction };
 
 export const DISTRICT_ZONES = [
   { id: 'periferia',       startCol: 0,                        endCol: Math.floor(MAP_COLS*0.35)-1, label: 'Periferia' },
@@ -39,5 +48,3 @@ export function toolColor(currentTool: string) {
   };
   return MAP[currentTool] || '#fff';
 }
-
-

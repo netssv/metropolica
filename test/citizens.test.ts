@@ -27,6 +27,20 @@ test("available residential capacity assigns a missing home and leaves it routab
   assert.ok(assigned.workTile);
 });
 
+test("initial citizens occupy separate single-capacity homes before sharing a building", () => {
+  const tiles = Array.from({ length: 20 }, (_, col) => ({ col, row: 0, type: "bldg-r", level: 0, owner: "d" }));
+  const citizens = Array.from({ length: 20 }, (_, index) => ({
+    id: `citizen-${index}`, householdId: "d-cohort-0", occupation: "residente", level: 2
+  } as any));
+  const assigned = assignCommuteLocations({ d: citizens }, [{ id: "d", tiles } as any]).d;
+  const homes = assigned.map(citizen => `${citizen.homeTile?.col},${citizen.homeTile?.row}`);
+  assert.equal(new Set(homes).size, 20);
+
+  const crowded = citizens.map(citizen => ({ ...citizen, homeTile: { col: 0, row: 0 } }));
+  const redistributed = assignCommuteLocations({ d: crowded }, [{ id: "d", tiles } as any]).d;
+  assert.equal(new Set(redistributed.map(citizen => `${citizen.homeTile?.col},${citizen.homeTile?.row}`)).size, 20);
+});
+
 test("commute destinations distribute across multiple industrial tiles deterministically", () => {
   const tiles = [0, 1, 2].map(col => ({ col, row: 0, type: "bldg-i", level: 0, age: 0 }))
     .concat([0, 1, 2].map(col => ({ col, row: 1, type: "bldg-r", level: 0, age: 0 })));

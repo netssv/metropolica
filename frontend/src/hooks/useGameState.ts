@@ -28,7 +28,7 @@ export function useGameState() {
       const newMap: any[][] = Array.from({ length: rows }, () => Array(cols).fill(null));
       for (const t of tilesJson.tiles) {
         if (t.row >= 0 && t.row < rows && t.col >= 0 && t.col < cols) {
-          newMap[t.row][t.col] = { type: t.type, owner: t.owner, level: t.level ?? 0, specialty: t.specialty };
+          newMap[t.row][t.col] = { type: t.type, owner: t.owner, level: t.level ?? 0, specialty: t.specialty, parkSize: t.parkSize ?? 1 };
         }
       }
       tileMapRef.current = newMap;

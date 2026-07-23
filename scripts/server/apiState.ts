@@ -33,6 +33,33 @@ export const handleState: Handler = (req, res, context) => {
   if (req.url?.split('?')[0] === '/api/tilemap') {
     const tiles: any[] = [];
     game.city.districts.forEach(d => (d.tiles ?? []).forEach((t: any) => tiles.push({ row: t.row, col: t.col, type: t.type, owner: d.id, level: t.level ?? 0, specialty: t.specialty })));
+
+    // Pre-compute parkSize (BFS cluster count) for each park tile server-side.
+    // This is more reliable than client-side BFS since the server has the full map.
+    const tileIndex = new Map<string, string>();
+    tiles.forEach(t => tileIndex.set(`${t.col}:${t.row}`, t.type));
+
+    const parkSizeCache = new Map<string, number>();
+    const computeParkSize = (startCol: number, startRow: number): number => {
+      const key = `${startCol}:${startRow}`;
+      if (parkSizeCache.has(key)) return parkSizeCache.get(key)!;
+      const visited = new Set<string>();
+      const queue: [number, number][] = [[startCol, startRow]];
+      while (queue.length) {
+        const [c, r] = queue.shift()!;
+        const k = `${c}:${r}`;
+        if (visited.has(k)) continue;
+        visited.add(k);
+        for (const [dc, dr] of [[-1,0],[1,0],[0,-1],[0,1]] as const) {
+          const nk = `${c+dc}:${r+dr}`;
+          if (!visited.has(nk) && tileIndex.get(nk) === 'park') queue.push([c+dc, r+dr]);
+        }
+      }
+      visited.forEach(k => parkSizeCache.set(k, visited.size));
+      return visited.size;
+    };
+
+    tiles.forEach(t => { if (t.type === 'park') t.parkSize = computeParkSize(t.col, t.row); });
     json(res, 200, { tiles });
     return true;
   }

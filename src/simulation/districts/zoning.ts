@@ -1,6 +1,7 @@
 import type { CommandDispatcher, PlaceZoneCommand, DemolishTileCommand } from "../../core/commands/index.ts";
 import type { CityState } from "../models.ts";
 import type { TileState } from "../models.ts";
+import { DEVELOPMENT_ECONOMY, constructionCost } from "../../../shared/economyBalance.ts";
 
 /**
  * Sprint 11 — Zone placement effects on simulation state (first pass, flagged for review).
@@ -19,11 +20,7 @@ import type { TileState } from "../models.ts";
  * demolish→ reverses a fraction of zone-r population proxy (−4 per tile demolished).
  */
 
-const TILE_COSTS: Record<string, number> = {
-  "zone-r": 100, "zone-c": 150, "zone-i": 200,
-  road: 50, park: 75, power: 500,
-};
-const DEMOLISH_COST = 25;
+const DEMOLISH_COST = DEVELOPMENT_ECONOMY.construction.demolish;
 const ZONE_TYPES = new Set(["zone-r", "zone-c", "zone-i"]);
 export const PROXIMITY_RADIUS = 3;
 export const PROXIMITY_EFFECTS: Record<number, number> = { 1: 0.02, 2: 0.01, 3: 0.005 };
@@ -63,7 +60,7 @@ export class ZoningLoop {
   }
 
   private placeZone(cmd: PlaceZoneCommand): void {
-    const expectedCost = TILE_COSTS[cmd.zoneType] ?? 0;
+    const expectedCost = constructionCost(cmd.zoneType, cmd.specialty);
     // Authoritative treasury validation — use server-known cost, ignore client-provided value.
     if (this.city.treasury < expectedCost) return;
 

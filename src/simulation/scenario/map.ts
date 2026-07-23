@@ -1,5 +1,7 @@
 import { SeededRandom } from "../../core/random/index.ts";
 import type { TileState } from "../models.ts";
+import { spawnParks } from "./mapParks.ts";
+import { assignSpecialties } from "./mapSpecialties.ts";
 
 export const MAP_COLS = 96;
 export const MAP_ROWS = 72;
@@ -125,7 +127,7 @@ export function generateInitialMap(seed = 1, cols = MAP_COLS, rows = MAP_ROWS): 
       const roll = random.next();
       if (district === 'zona_industrial') tile.type = roll < 0.62 ? 'bldg-i' : 'bldg-c';
       else if (district === 'centro') tile.type = roll < 0.62 ? 'bldg-c' : 'bldg-r';
-      else tile.type = roll < 0.78 ? 'bldg-r' : 'park';
+      else tile.type = roll < 0.78 ? 'bldg-r' : 'grass';
     }
   }
 
@@ -154,54 +156,11 @@ export function generateInitialMap(seed = 1, cols = MAP_COLS, rows = MAP_ROWS): 
     }
   }
 
-  const adjacentToWater = (col: number, row: number) => {
-    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
-      if (Math.abs(dc) + Math.abs(dr) > 2) continue;
-      if (map[row + dr]?.[col + dc]?.type === 'water') return true;
-    }
-    return false;
-  };
+  assignSpecialties(map, Object.keys(tilesByOwner));
 
-  // Ensure water-adjacent districts have a small, visible waterfront economy.
-  // Ensure water-adjacent districts have a small, visible waterfront economy.
-  for (const district of Object.keys(tilesByOwner)) {
-    const waterfrontType = district === 'zona_industrial' ? 'bldg-i' : 'bldg-c';
-    const limit = initialBuildingLimit(waterfrontType, district) ?? 0;
-    const existingBuildings = map.flat().filter(tile => tile.owner === district && tile.type === waterfrontType);
-    const existing = existingBuildings.length;
-    const candidates = map.flat().filter(tile => tile.owner === district && ['grass', 'sand', 'tree'].includes(tile.type) && adjacentToWater(tile.col, tile.row))
-      .sort((a, b) => Number(nearRoad(b.col, b.row, 2)) - Number(nearRoad(a.col, a.row, 2)) || a.row - b.row || a.col - b.col);
-    const selected = candidates.slice(0, Math.min(2, candidates.length));
-    if (selected.length && existing >= limit) {
-      const demoted = existingBuildings.find(tile => !tile.specialty);
-      if (demoted) { demoted.type = 'grass'; demoted.specialty = undefined; }
-    }
-    selected.slice(0, Math.max(0, limit - existing + (existing >= limit ? 1 : 0))).forEach((tile, index) => {
-      tile.type = waterfrontType;
-      tile.specialty = waterfrontType === 'bldg-i' ? (index % 2 ? 'customs' : 'water-treatment') : (index % 2 ? 'pier' : 'fish-market');
-    });
-  }
-
-  // Dedicated Phase 1 service variants reuse commercial building tiles.
-  for (const district of Object.keys(tilesByOwner)) {
-    const commercial = map.flat().filter(tile => tile.owner === district && tile.type === 'bldg-c')
-      .sort((a, b) => a.row - b.row || a.col - b.col);
-    if (commercial[0]) commercial[0].specialty = 'hospital';
-    if (commercial[1]) commercial[1].specialty = 'mall-government';
-  }
-
-  // Waterfront plots prefer uses that make sense next to water. Keep the role in
-  // tile metadata so the renderer and future economy loops can recognize it.
-  for (const district of Object.keys(tilesByOwner)) {
-    const waterfront = map.flat().filter(tile => tile.owner === district && adjacentToWater(tile.col, tile.row)
-      && (tile.type === 'bldg-c' || tile.type === 'bldg-i'))
-      .sort((a, b) => a.row - b.row || a.col - b.col);
-    waterfront.forEach((tile, index) => {
-      if (tile.specialty === 'hospital' || tile.specialty === 'mall-government') return;
-      if (tile.type === 'bldg-i') tile.specialty = index % 3 === 0 ? 'water-treatment' : 'customs';
-      else tile.specialty = index % 3 === 0 ? 'fish-market' : index % 3 === 1 ? 'pier' : 'customs';
-    });
-  }
+  // Scatter park clusters across all districts based on seed.
+  // Uses remaining grass tiles; clusters sized 1-4 depend on district type.
+  spawnParks(map, rows, cols, random);
 
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {

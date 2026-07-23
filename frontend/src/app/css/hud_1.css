@@ -107,9 +107,9 @@
   bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 8px;
-  background: var(--surface);
+  gap: 7px;
+  padding: 12px 9px 10px;
+  background: linear-gradient(180deg, rgba(13, 27, 24, .98), rgba(5, 14, 12, .96));
   backdrop-filter: blur(16px);
   border-right: 1px solid var(--border);
   overflow-y: auto;
@@ -121,6 +121,17 @@
 #hud-toolbar::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
 
 .tool-section { display: flex; flex-direction: column; gap: 2px; }
+.toolbar-title { display: grid; gap: 2px; padding: 2px 6px 8px; border-bottom: 1px solid rgba(148, 163, 184, .13); }
+.toolbar-title span { color: #f5c76a; font-size: .62rem; font-weight: 800; letter-spacing: .14em; }
+.toolbar-title small { color: var(--text-dim); font-size: .59rem; }
+.toolbar-inspector { padding-bottom: 3px; border-bottom: 1px solid rgba(148, 163, 184, .13); }
+.build-group { border: 1px solid transparent; border-radius: 8px; overflow: hidden; }
+.build-group.open { background: rgba(255,255,255,.018); border-color: rgba(148,163,184,.09); }
+.build-group-toggle { display: flex; align-items: center; gap: 7px; width: 100%; padding: 7px 8px; border: 0; background: transparent; color: #aebbad; cursor: pointer; font-size: .64rem; font-weight: 800; letter-spacing: .045em; text-align: left; text-transform: uppercase; }
+.build-group-toggle:hover { background: rgba(255,255,255,.045); color: #e4ecdf; }
+.build-chevron { margin-left: auto; color: #758477; font-size: .9rem; transition: transform .16s ease; }
+.build-group.open .build-chevron { transform: rotate(180deg); color: #e5ba5d; }
+.build-group-items { padding: 0 3px 4px; }
 .tool-sec-label {
   font-size: 0.55rem;
   font-weight: 700;
@@ -157,6 +168,10 @@
   border-color: rgba(212,130,42,0.45);
   color: var(--accent-hi);
 }
+.tool-btn:focus-visible, .build-group-toggle:focus-visible { outline: 2px solid #e5ba5d; outline-offset: -2px; }
+.tool-btn.tool-future { opacity: .5; cursor: not-allowed; }
+.tool-btn.tool-future:hover { background: transparent; border-color: transparent; color: var(--text-muted); }
+.tool-soon { border: 1px solid rgba(148,163,184,.22); border-radius: 3px; color: #8a968b; font-family: var(--mono); font-size: .44rem; letter-spacing: .04em; padding: 2px 3px; }
 .tool-btn.tool-danger { color: var(--text-muted); }
 .tool-btn.tool-danger:hover  { background: rgba(239,68,68,0.1);  border-color: rgba(239,68,68,0.3); color: #fca5a5; }
 .tool-btn.tool-danger.active { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.5); color: var(--red); }
@@ -174,7 +189,7 @@
 
 .toolbar-hint {
   margin-top: auto;
-  padding: 8px 6px;
+  padding: 9px 6px 2px;
   font-size: 0.58rem;
   color: var(--text-dim);
   line-height: 1.5;

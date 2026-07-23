@@ -60,11 +60,29 @@ html, body {
 
 .citizen-inspector {
   position: fixed; right: 18px; bottom: 18px; z-index: 60;
-  display: flex; flex-direction: column; gap: 5px; min-width: 230px;
+  display: flex; flex-direction: column; gap: 7px; width: min(330px, calc(100vw - 36px)); min-width: 0; max-height: calc(100vh - 80px); overflow-y: auto;
   padding: 12px 34px 12px 12px; color: #f5f0df;
   background: rgba(13, 24, 22, 0.95); border: 1px solid #25b7a7;
-  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.45); font-size: 12px;
+  border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.45); font-size: 12px; overflow-wrap: anywhere;
 }
+.house-inspector { padding: 15px 16px; border-color: rgba(42,171,140,.65); }
+.inspector-close { position: absolute; top: 5px; right: 8px; border: 0; background: none; color: #fff; font-size: 20px; cursor: pointer; }
+.inspector-eyebrow, .inspector-section { color: var(--teal); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
+.inspector-title { color: #fff; font-size: 15px; }
+.inspector-location { color: #d9e5dc; font-weight: 600; text-transform: capitalize; }
+.inspector-location small { color: #8fa59a; font-family: var(--mono); font-size: 10px; }
+.inspector-highlights { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.inspector-highlights > div { padding: 9px; border: 1px solid rgba(255,255,255,.09); border-radius: 7px; background: rgba(255,255,255,.045); }
+.inspector-highlights b, .inspector-highlights span { display: block; }
+.inspector-highlights b { color: #fff; font: 700 14px var(--mono); }
+.inspector-highlights span { color: #8fa59a; font-size: 10px; }
+.inspector-person { position: static !important; display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; background: rgba(255,255,255,.035); color: #e8f1e9; text-align: left; cursor: pointer; }
+.inspector-person:hover { background: rgba(42,171,140,.12); border-color: rgba(42,171,140,.45); }
+.inspector-person > span:last-child { min-width: 0; }
+.inspector-person b, .inspector-person small { display: block; white-space: normal; }
+.inspector-person b { color: #e8f1e9; font-size: 11px; }
+.inspector-person small { color: #aabbb0; font-size: 10px; line-height: 1.3; }
+.person-avatar { display: grid; place-items: center; flex: 0 0 25px; width: 25px; height: 25px; border-radius: 50%; background: rgba(42,171,140,.2); color: #72dec0; font: 700 11px var(--mono); }
 .test-minimap { position: fixed; z-index: 24; padding: 5px; background: rgba(13,24,22,.92); border: 1px solid rgba(245,197,66,.7); border-radius: 6px; pointer-events: auto; }
 .test-minimap, #city-canvas { transform-origin: center center; }
 .map-overview-hidden { opacity: 0; transform: none; pointer-events: none; }
@@ -75,5 +93,23 @@ html, body {
 .minimap-header button, .minimap-show { border: 1px solid rgba(245,197,66,.5); border-radius: 3px; background: transparent; color: #f5c542; font: 700 9px var(--mono); cursor: pointer; padding: 2px 4px; }
 .minimap-show { position: fixed; top: 58px; right: 16px; z-index: 24; background: rgba(13,24,22,.92); }
 .test-minimap canvas { display: block; width: 288px; height: 216px; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
-.citizen-inspector button { position: absolute; top: 5px; right: 8px; border: 0; background: none; color: #fff; font-size: 20px; cursor: pointer; }
+.citizen-inspector button:not(.inspector-close) { position: static; }
+.citizen-inspector .ctrl-btn { align-self: flex-start; }
 .citizen-inspector span { color: #b9c9c2; }
+
+.inspector-wrapper {
+  position: fixed; right: 18px; bottom: 18px; z-index: 60;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  opacity: 1;
+}
+.inspector-wrapper.fade-out {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+}
+.inspector-wrapper .citizen-inspector {
+  position: static;
+  right: auto;
+  bottom: auto;
+}
+
