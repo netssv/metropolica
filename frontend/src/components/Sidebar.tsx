@@ -45,7 +45,7 @@ export default function Sidebar() {
 
     <MenuGroup title="Servicios públicos" icon="✚" open={openGroups.services} onToggle={() => toggle('services')}>
       <button className={`tool-btn ${selectedSpecialty === 'hospital' ? 'active' : ''}`} onClick={() => selectCommercialSpecialty('hospital')}><span className="tool-ico">🏥</span><span className="tool-name">Hospital</span><span className="tool-cost">{money(TOOL_COSTS.hospital)}</span></button>
-      <button className={`tool-btn ${selectedSpecialty === 'mall-government' ? 'active' : ''}`} onClick={() => selectCommercialSpecialty('mall-government')}><span className="tool-ico">🏛️</span><span className="tool-name">Gobierno / Mall</span><span className="tool-cost">{money(TOOL_COSTS['mall-government'])}</span></button>
+      <button className={`tool-btn ${selectedSpecialty === 'mall-government' ? 'active' : ''}`} onClick={() => selectCommercialSpecialty('mall-government')}><span className="tool-ico">🏛️</span><span className="tool-name">Centro cívico</span><span className="tool-cost">{money(TOOL_COSTS['mall-government'])}</span></button>
       <FutureTool icon="🏫" name="Escuela" /><FutureTool icon="🚓" name="Policía" /><FutureTool icon="🚒" name="Bomberos" />
     </MenuGroup>
 

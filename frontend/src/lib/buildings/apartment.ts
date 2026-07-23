@@ -3,30 +3,36 @@
  * Draws a detailed multi-story residential building occupying a 2x2 grid block.
  * Called only on the anchor tile (bldg-tl); the other 3 partner tiles remain silent.
  */
-import { DrawArgs } from './types.ts';
+import type { DrawArgs } from './types.ts';
 import { PROCEDURAL_DETAIL_ZOOM } from './constants.ts';
 import { ISO_TILE_W, ISO_TILE_H } from '../isoMath.ts';
+import { drawAnimatedWindow, drawRooftopDetails } from './helpers.ts';
 
 export function drawApartmentBuilding(args: DrawArgs) {
-  const { ctx, px, py, zoom, night = false } = args;
+  const { ctx, px, py, zoom, project, tileCol, tileRow } = args;
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return;
 
   const TW = ISO_TILE_W * zoom;
   const TH = ISO_TILE_H * zoom;
 
-  // The 2x2 isometric footprint bounds:
-  // Top corner: px + TW/2, py
-  // Right corner: px + TW * 1.5, py + TH
-  // Bottom corner: px + TW/2, py + TH * 2
-  // Left corner: px - TW/2, py + TH
-  const topX = px + TW / 2;
-  const topY = py;
-  const rightX = px + TW * 1.5;
-  const rightY = py + TH;
-  const botX = px + TW / 2;
-  const botY = py + TH * 2;
-  const leftX = px - TW / 2;
-  const leftY = py + TH;
+  // Derive the four corners from the active camera projection. The previous
+  // fixed offsets only describe the north-east view, causing a 2×2 tower to
+  // drift over unrelated lots after a camera rotation.
+  const at = (col: number, row: number) => project?.(col, row) ?? { x: px + (col - (tileCol ?? col)) * TW / 2 - (row - (tileRow ?? row)) * TW / 2, y: py + (col - (tileCol ?? col)) * TH / 2 + (row - (tileRow ?? row)) * TH / 2 };
+  const col = tileCol ?? 0;
+  const row = tileRow ?? 0;
+  const top = at(col, row);
+  const right = at(col + 1, row);
+  const bottom = at(col + 1, row + 1);
+  const left = at(col, row + 1);
+  const topX = top.x + TW / 2;
+  const topY = top.y;
+  const rightX = right.x + TW;
+  const rightY = right.y + TH / 2;
+  const botX = bottom.x + TW / 2;
+  const botY = bottom.y + TH;
+  const leftX = left.x;
+  const leftY = left.y + TH / 2;
 
   // 1. Draw 2x2 Ground Lot / Plaza base
   ctx.fillStyle = '#437050';
@@ -52,7 +58,6 @@ export function drawApartmentBuilding(args: DrawArgs) {
   const bldgHeight = 54 * zoom;
   const wallLeftColor = '#4a7556';
   const wallRightColor = '#3c6347';
-  const winColor = night ? '#ffe9a3' : '#e2f0d9';
   const roofColor = '#2b4733';
 
   // 2. Main tower facade
@@ -101,20 +106,18 @@ export function drawApartmentBuilding(args: DrawArgs) {
   const floors = 4;
   for (let f = 0; f < floors; f++) {
     const floorY = insetBotY - (8 + f * 9) * zoom;
-    ctx.fillStyle = winColor;
-    
     // Left facade windows
     for (let w = 0; w < 3; w++) {
       const wx = insetLeftX + (insetBotX - insetLeftX) * (0.2 + w * 0.26);
       const wy = insetLeftY + (insetBotY - insetLeftY) * (0.2 + w * 0.26) - (8 + f * 9) * zoom;
-      ctx.fillRect(wx, wy, 4 * zoom, 5 * zoom);
+      drawAnimatedWindow(args, wx, wy, 4, 5, (args.seed ?? 0) + f * 7 + w);
     }
     
     // Right facade windows
     for (let w = 0; w < 3; w++) {
       const wx = insetBotX + (insetRightX - insetBotX) * (0.2 + w * 0.26);
       const wy = insetBotY + (insetRightY - insetBotY) * (0.2 + w * 0.26) - (8 + f * 9) * zoom;
-      ctx.fillRect(wx, wy, 4 * zoom, 5 * zoom);
+      drawAnimatedWindow(args, wx, wy, 4, 5, (args.seed ?? 0) + f * 11 + w + 20);
     }
   }
 
@@ -123,4 +126,6 @@ export function drawApartmentBuilding(args: DrawArgs) {
   const tankX = insetTopX;
   const tankY = insetTopY - bldgHeight - 6 * zoom;
   ctx.fillRect(tankX - 4 * zoom, tankY - 6 * zoom, 8 * zoom, 8 * zoom);
+  // Anchor the rooftop equipment on the visible centre of the roof plane.
+  drawRooftopDetails(args, tankX, insetTopY - bldgHeight + 18 * zoom, TW * 0.28 / zoom, args.seed ?? 0);
 }

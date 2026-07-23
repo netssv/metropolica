@@ -1,6 +1,6 @@
-import { DrawArgs, Tier, HousingProfile } from './types.ts';
+import type { DrawArgs, Tier, HousingProfile } from './types.ts';
 import { PROCEDURAL_DETAIL_ZOOM, palettes, roofs } from './constants.ts';
-import { buildingVariant, footprint, silhouette, lot } from './helpers.ts';
+import { buildingVariant, footprint, silhouette, lot, drawAnimatedWindow } from './helpers.ts';
 import { drawDuplex } from './duplex.ts';
 import { drawApartmentBuilding } from './apartment.ts';
 
@@ -8,14 +8,15 @@ export function house(args: DrawArgs, tier: Tier, housing?: HousingProfile) {
   const { ctx, zoom, seed = 0, houseRole = 'single' } = args;
 
   // Handle multi-tile house cluster roles
-  if (houseRole === 'duplex-a') {
-    return drawDuplex(args);
+  if (houseRole === 'duplex-h-a' || houseRole === 'duplex-v-a') {
+    return drawDuplex(args, houseRole === 'duplex-h-a' ? 'horizontal' : 'vertical');
   }
   if (houseRole === 'bldg-tl') {
     return drawApartmentBuilding(args);
   }
   if (
-    houseRole === 'duplex-b' ||
+    houseRole === 'duplex-h-b' ||
+    houseRole === 'duplex-v-b' ||
     houseRole === 'bldg-tr' ||
     houseRole === 'bldg-bl' ||
     houseRole === 'bldg-br'
@@ -38,10 +39,9 @@ export function house(args: DrawArgs, tier: Tier, housing?: HousingProfile) {
   ctx.fillStyle = tier === 1 ? '#5d9866' : '#7fbd72';
   ctx.fillRect(cx - hw * 0.6, base - hh - height, hw * 1.2, height);
 
-  ctx.fillStyle = args.night ? '#ffe9a3' : '#d7e3c0';
   const wx = cx - hw * (0.45 - v * 0.08);
   for (let y = base - hh - height + 5 * zoom; y < base - hh - 2 * zoom; y += 8 * zoom) {
-    ctx.fillRect(wx, y, 3 * zoom, 3 * zoom);
+    drawAnimatedWindow(args, wx, y, 3, 3, seed);
   }
 
   ctx.fillStyle = roof;

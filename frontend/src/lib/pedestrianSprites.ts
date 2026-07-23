@@ -1,6 +1,6 @@
 import { buildRoadGraph, findRoadRoute } from './trafficSystem.ts';
-import { Side } from './sidewalkSystem.ts';
-import { Point, MapTile, Citizen, PedTrip } from './pedestrians/types.ts';
+import type { Side } from './sidewalkSystem.ts';
+import type { Point, MapTile, Citizen, PedTrip } from './pedestrians/types.ts';
 import { hash, pedestrianColor, clamp01, adjacentRoad, k } from './pedestrians/utils.ts';
 import { visualSidewalkPath, interpolatePath } from './pedestrians/path.ts';
 import { getPedestrianCrossingPresence } from './pedestrians/crossing.ts';

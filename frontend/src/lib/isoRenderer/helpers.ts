@@ -16,12 +16,21 @@ export function drawDiamond(ctx: CanvasRenderingContext2D, px: number, py: numbe
   ctx.fill();
 }
 
-export function drawTerrainDetails(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: number, type: string, seed: number) {
+export function drawTerrainDetails(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: number, type: string, seed: number, project?: (c:number,r:number)=>{x:number;y:number}, col?: number, row?: number) {
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return;
   const hw = (ISO_TILE_W * zoom) / 2;
   const hh = (ISO_TILE_H * zoom) / 2;
   const cx = px + hw;
   const cy = py + hh;
+  // Keep procedural marks aligned with the rotated tile frame. The projected
+  // column vector gives the camera's screen-space quarter-turn without
+  // touching canonical map coordinates.
+  let angle = 0;
+  if (project && col != null && row != null) {
+    const p = project(col, row), q = project(col + 1, row);
+    angle = Math.atan2(q.y - p.y, q.x - p.x) - Math.atan2(ISO_TILE_H, ISO_TILE_W);
+  }
+  const local = (x:number, y:number) => ({ x: cx + x * Math.cos(angle) - y * Math.sin(angle), y: cy + x * Math.sin(angle) + y * Math.cos(angle) });
   const variant = Math.abs(seed) % 3;
 
   if (type === T.TREE) {
@@ -38,9 +47,8 @@ export function drawTerrainDetails(ctx: CanvasRenderingContext2D, px: number, py
   } else if (type === T.GRASS) {
     ctx.fillStyle = '#8bcf75';
     for (let i = 0; i < 3; i++) {
-      const x = px + (7 + ((seed + i * 11) % 17)) * zoom;
-      const y = py + (7 + ((seed + i * 7) % 10)) * zoom;
-      ctx.fillRect(x, y, 2 * zoom, 2 * zoom);
+      const p = local(((7 + ((seed + i * 11) % 17)) - 16) * zoom, ((7 + ((seed + i * 7) % 10)) - 8) * zoom);
+      ctx.fillRect(p.x, p.y, 2 * zoom, 2 * zoom);
     }
   } else if (type === T.SAND) {
     ctx.fillStyle = '#b9a56f';
@@ -58,19 +66,16 @@ export function isPlainRoadAt(map: TileMap | undefined, col: number, row: number
   return map?.[row]?.[col]?.type === T.ROAD;
 }
 
-export function buildingStreetInset(map: TileMap | undefined, col: number, row: number, zoom: number) {
-  const neighbors = [
-    [col, row - 1, 32, 16],
-    [col + 1, row, -32, 16],
-    [col, row + 1, -32, -16],
-    [col - 1, row, 32, -16]
-  ].filter(([nc, nr]) => isRoadAt(map, nc, nr));
+export function buildingStreetInset(map: TileMap | undefined, col: number, row: number, zoom: number, project?: (c:number,r:number)=>{x:number;y:number}) {
+  const neighbors = [[col, row - 1], [col + 1, row], [col, row + 1], [col - 1, row]]
+    .filter(([nc, nr]) => isRoadAt(map, nc, nr));
 
   if (!neighbors.length) return { x: 0, y: 0 };
-  const direction = neighbors.reduce(
-    (sum, [, , x, y]) => ({ x: sum.x - Number(x), y: sum.y - Number(y) }),
-    { x: 0, y: 0 }
-  );
+  const center = project ? project(col, row) : { x: 0, y: 0 };
+  const direction = neighbors.reduce((sum, [nc, nr]) => {
+    const p = project ? project(Number(nc), Number(nr)) : center;
+    return { x: sum.x - (p.x - center.x), y: sum.y - (p.y - center.y) };
+  }, { x: 0, y: 0 });
   const length = Math.max(1, Math.hypot(direction.x, direction.y));
   const inset = Math.min(7, 5.5 * zoom);
   return { x: (direction.x / length) * inset, y: (direction.y / length) * inset };

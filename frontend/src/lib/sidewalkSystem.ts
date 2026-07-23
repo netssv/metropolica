@@ -18,7 +18,7 @@ export function crosswalkCenter(project: (col: number, row: number) => { x: numb
 /** Screen-space sidewalk position parallel to a road edge. */
 export function sidewalkPoint(project: (col: number, row: number) => { x: number; y: number }, from: RoadNode, to: RoadNode, side: Side, zoom: number, map?: Tile[][]) {
   const center = project(from.col, from.row);
-  const road = laneOffset(from, to, zoom);
+  const road = laneOffset(from, to, zoom, project);
   const sign = side === 'left' ? -1 : 1;
   // The road occupies the centre of the isometric diamond. Push the
   // sidewalk beyond the asphalt edge, rather than leaving it in the lane.
@@ -125,22 +125,16 @@ export function drawSidewalkInfrastructure(ctx: CanvasRenderingContext2D, map: T
       // Grid unit (1, 0) -> screen vector (+hw, +hh)
       // Grid unit (0, 1) -> screen vector (-hw, +hh)
       // Unit vector Along the road axis (road Vector):
-      const rX = (dc - dr) * (hw / 2);
-      const rY = (dc + dr) * (hh / 2);
+      const neighbor = project(n.col, n.row);
+      const rX = neighbor.x - center.x;
+      const rY = neighbor.y - center.y;
       const rLen = Math.hypot(rX, rY);
       const uX = rX / rLen;
       const uY = rY / rLen;
 
-      // Unit vector Across the road axis (perpendicular in grid / isometric projection):
-      // If road is along (1,0) [down-right], across vector is along (0,1) [down-left]
-      let cX = 0, cY = 0;
-      if (dc !== 0) {
-        // Road is in col direction (axis 1). Across vector is in row direction (axis 2)
-        cX = -hw; cY = hh;
-      } else {
-        // Road is in row direction (axis 2). Across vector is in col direction (axis 1)
-        cX = hw; cY = hh;
-      }
+      // Perpendicular screen vector, derived from the active projection.
+      const cX = -rY;
+      const cY = rX;
       const cLen = Math.hypot(cX, cY);
       const perpX = cX / cLen;
       const perpY = cY / cLen;
@@ -205,7 +199,7 @@ export function sidewalkEdge(
 ) {
   const pFrom = project(from.col, from.row);
   const pTo   = project(to.col,   to.row);
-  const road  = laneOffset(from, to, zoom);
+      const road  = laneOffset(from, to, zoom, project);
   const sign  = side === 'left' ? -1 : 1;
   return {
     x: pFrom.x + (pTo.x - pFrom.x) * t + ISO_TILE_W * zoom / 2 + road.x * 2.0 * sign,

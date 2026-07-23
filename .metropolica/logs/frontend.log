@@ -954,3 +954,93 @@ Import trace for requested module:
  GET / 200 in 346ms (next.js: 52ms, application-code: 294ms)
 [HOME RENDER]
  GET / 200 in 377ms (next.js: 131ms, application-code: 245ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[browser] React has detected a change in the order of Hooks called by CanvasMap. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
+
+   Previous render            Next render
+   ------------------------------------------------------
+1. useContext                 useContext
+2. useRef                     useRef
+3. useRef                     useRef
+4. useRef                     useRef
+5. useRef                     useRef
+6. useRef                     useRef
+7. useRef                     useRef
+8. useRef                     useRef
+9. useRef                     useRef
+10. useRef                    useRef
+11. useCallback               useCallback
+12. useCallback               useCallback
+13. useCallback               useCallback
+14. useCallback               useCallback
+15. useCallback               useCallback
+16. useCallback               useCallback
+17. useCallback               useCallback
+18. useCallback               useCallback
+19. useEffect                 useCallback
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 
+    at useMapCamera (src/components/canvasMap/useMapCamera.ts:59:31)
+    at CanvasMap (src/components/CanvasMap.tsx:48:30)
+  57 |     stateRef.current.oy += dy;
+  58 |   }, []);
+> 59 |   const rotateBy = useCallback((steps: number) => {
+     |                               ^
+  60 |     const canvas = canvasRef.current;
+  61 |     const x = (canvas?.width ?? window.innerWidth) / 2;
+  62 |     const y = (canvas?.height ?? window.innerHeight) / 2; (src/components/canvasMap/useMapCamera.ts:59:31)
+[browser] Uncaught TypeError: Cannot read properties of null (reading '1')
+    at useMapCamera (src/components/canvasMap/useMapCamera.ts:79:17)
+    at CanvasMap (src/components/CanvasMap.tsx:48:30)
+    at Home (src/app/page.tsx:13:9)
+  77 |     return () => window.removeEventListener('resize', resize);
+  78 |   }, [canvasRef, centerWorld]);
+> 79 |   return useMemo(() => ({ ref: stateRef, values: () => ({ ...stateRef.current }), options,...
+     |                 ^
+  80 | }
+  81 |
+[HOME RENDER]
+ GET / 200 in 1234ms (next.js: 1063ms, application-code: 171ms)
+[HOME RENDER]
+ GET / 200 in 171ms (next.js: 83ms, application-code: 88ms)
+[HOME RENDER]
+ GET / 200 in 266ms (next.js: 65ms, application-code: 201ms)
+[browser] ./src/lib/isoRenderer/road.ts
+Module parse failed: Identifier 'center' has already been declared (175:10)
+|         y: py + hh
+|     };
+>     const center = {
+|         x: px + hw,
+|         y: py + hh
+
+Import trace for requested module:
+./src/lib/isoRenderer/road.ts
+./src/lib/isoRenderer.ts
+./src/components/canvasMap/useMapRenderer.ts
+./src/components/CanvasMap.tsx 
+⨯ ./src/lib/isoRenderer/road.ts
+Module parse failed: Identifier 'center' has already been declared (175:10)
+|         y: py + hh
+|     };
+>     const center = {
+|         x: px + hw,
+|         y: py + hh
+
+Import trace for requested module:
+./src/lib/isoRenderer/road.ts
+./src/lib/isoRenderer.ts
+./src/components/canvasMap/useMapRenderer.ts
+./src/components/CanvasMap.tsx
+[browser] ./src/lib/isoRenderer/road.ts
+Module parse failed: Identifier 'center' has already been declared (175:10)
+|         y: py + hh
+|     };
+>     const center = {
+|         x: px + hw,
+|         y: py + hh
+
+Import trace for requested module:
+./src/lib/isoRenderer/road.ts
+./src/lib/isoRenderer.ts
+./src/components/canvasMap/useMapRenderer.ts
+./src/components/CanvasMap.tsx 

@@ -1,5 +1,5 @@
 import { buildRoadGraph } from '../trafficSystem.ts';
-import { Citizen, MapTile } from './types.ts';
+import type { Citizen, MapTile } from './types.ts';
 import { clamp01, k } from './utils.ts';
 import { trips } from '../pedestrianSprites.ts';
 import type { PedestrianCrossingPresence } from '../citizens/roadTrafficTypes.ts';

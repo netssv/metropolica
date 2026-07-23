@@ -1,13 +1,13 @@
-import { DrawArgs, Tier } from './types.ts';
+import type { DrawArgs, Tier } from './types.ts';
 import { PROCEDURAL_DETAIL_ZOOM, palettes, awnings } from './constants.ts';
-import { buildingVariant, footprint, silhouette, lot } from './helpers.ts';
+import { buildingVariant, footprint, silhouette, lot, drawAnimatedWindow, drawRooftopDetails } from './helpers.ts';
 
 /** Commercial types to give diverse architectural visuals */
 const SHOP_TYPES = [
-  { name: 'Supermercado', signBg: '#e53e3e', signText: 'SUPER', wall: '#f7fafc', roof: '#cbd5e0', awning: '#e53e3e' },
-  { name: 'Ropa & Moda', signBg: '#d69e2e', signText: 'MODA', wall: '#fff5f5', roof: '#feb2b2', awning: '#f6ad55' },
-  { name: 'Ferretería', signBg: '#3182ce', signText: 'HARDWARE', wall: '#edf2f7', roof: '#a0aec0', awning: '#3182ce' },
-  { name: 'Centro Comercial / Mall', signBg: '#805ad5', signText: 'MALL', wall: '#faf5ff', roof: '#e9d8fd', awning: '#9f7aea' },
+  { name: 'Bodega', signBg: '#e53e3e', signText: 'BODEGA', wall: '#f7fafc', roof: '#cbd5e0', awning: '#e53e3e' },
+  { name: 'Tienda de ropa', signBg: '#d69e2e', signText: 'ROPA', wall: '#fff5f5', roof: '#feb2b2', awning: '#f6ad55' },
+  { name: 'Ferretería', signBg: '#3182ce', signText: 'FERRE', wall: '#edf2f7', roof: '#a0aec0', awning: '#3182ce' },
+  { name: 'Centro comercial', signBg: '#805ad5', signText: 'CENTRO', wall: '#faf5ff', roof: '#e9d8fd', awning: '#9f7aea' },
 ] as const;
 
 export function shop(args: DrawArgs, tier: Tier) {
@@ -36,13 +36,14 @@ export function shop(args: DrawArgs, tier: Tier) {
 
   // Upper floor windows if tier === 2
   if (tier === 2) {
-    ctx.fillStyle = night ? '#fefcbf' : '#63b3ed';
     for (let wy = base - hh - height + 6 * zoom; wy < base - hh - 12 * zoom; wy += 8 * zoom) {
       for (let wx = cx - hw * 0.6; wx < cx + hw * 0.5; wx += 7 * zoom) {
-        ctx.fillRect(wx, wy, 4 * zoom, 4 * zoom);
+        drawAnimatedWindow(args, wx, wy, 4, 4, seed + Math.round(wx));
       }
     }
   }
+
+  if (tier === 2) drawRooftopDetails(args, cx, base - hh - height + 6 * zoom, hw * 0.7, seed);
 
   // 4. Commercial Storefront Signboard (Banner with Shop Identity)
   const signY = base - hh - height - 4 * zoom;

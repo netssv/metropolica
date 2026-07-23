@@ -60,7 +60,7 @@ export function renderVehicle(
   project?: Projection,
 ): void {
   const { roadPoint, destination, from, to, local } = computeVehiclePosition(trip, ox, oy, zoom, project);
-  const lane = laneOffset(from, to, zoom);
+  const lane = laneOffset(from, to, zoom, project);
 
   const cx = (destination?.x ?? (roadPoint ? roadPoint.x + ISO_TILE_W * zoom / 2 : 0)) + lane.x;
   const cy = (destination?.y ?? (roadPoint ? roadPoint.y + ISO_TILE_H * zoom / 2 : 0)) + lane.y;

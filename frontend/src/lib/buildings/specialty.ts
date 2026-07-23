@@ -1,4 +1,4 @@
-import { DrawArgs, Tier, BuildingSpecialty } from './types.ts';
+import type { DrawArgs, Tier, BuildingSpecialty } from './types.ts';
 import { PROCEDURAL_DETAIL_ZOOM } from './constants.ts';
 import { specialtySilhouette, footprint } from './helpers.ts';
 

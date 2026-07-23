@@ -15,6 +15,8 @@ export type DrawArgs = {
   tileRow?: number;
   /** project fn for multi-tile builds */
   project?: (col: number, row: number) => { x: number; y: number };
+  /** Camera quarter-turn, when available, for orientation-sensitive details. */
+  rotation?: number;
 };
 
 export type HousingProfile = {

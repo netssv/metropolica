@@ -1,4 +1,4 @@
-import { DrawArgs, Tier, HousingProfile, BuildingSpecialty } from './buildings/types.ts';
+import type { DrawArgs, Tier, HousingProfile, BuildingSpecialty } from './buildings/types.ts';
 import { PROCEDURAL_DETAIL_ZOOM } from './buildings/constants.ts';
 import { footprint, silhouette, buildingVariant } from './buildings/helpers.ts';
 import { house } from './buildings/house.ts';

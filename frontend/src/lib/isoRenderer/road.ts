@@ -20,7 +20,8 @@ export function drawRoad(
   bridge = false,
   col = 0,
   row = 0,
-  map?: TileMap
+  map?: TileMap,
+  project?: (col: number, row: number) => { x: number; y: number }
 ) {
   const hw = (ISO_TILE_W / 2) * zoom;
   const hh = (ISO_TILE_H / 2) * zoom;
@@ -155,11 +156,15 @@ export function drawRoad(
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return;
 
   const center = { x: px + hw, y: py + hh };
+  const projectedArm = (c: number, r: number, fallback: {x:number;y:number}) => {
+    const p = project?.(c, r); const self = project?.(col, row);
+    return p && self ? { x: center.x + (p.x - self.x), y: center.y + (p.y - self.y) } : fallback;
+  };
   const arms = [
-    [connections.north, { x: px + hw * 1.5, y: py + hh * 0.5 }],
-    [connections.east, { x: px + hw * 1.5, y: py + hh * 1.5 }],
-    [connections.south, { x: px + hw * 0.5, y: py + hh * 1.5 }],
-    [connections.west, { x: px + hw * 0.5, y: py + hh * 0.5 }]
+    [connections.north, projectedArm(col, row - 1, { x: px + hw * 1.5, y: py + hh * 0.5 })],
+    [connections.east, projectedArm(col + 1, row, { x: px + hw * 1.5, y: py + hh * 1.5 })],
+    [connections.south, projectedArm(col, row + 1, { x: px + hw * 0.5, y: py + hh * 1.5 })],
+    [connections.west, projectedArm(col - 1, row, { x: px + hw * 0.5, y: py + hh * 0.5 })]
   ] as const;
 
   const connectedCount =

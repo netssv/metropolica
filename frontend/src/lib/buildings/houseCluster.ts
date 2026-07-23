@@ -3,8 +3,8 @@
  *
  * Classifies each residential (bldg-r) tile into:
  *   'single'   → standalone house (1 tile)
- *   'duplex-a' → anchor of a 2-tile duplex (draws the duplex)
- *   'duplex-b' → partner tile of a duplex (silent)
+ *   'duplex-h-a'/'duplex-h-b' → horizontal duplex anchor/partner
+ *   'duplex-v-a'/'duplex-v-b' → vertical duplex anchor/partner
  *   'bldg-tl'  → top-left anchor of a 2×2 apartment (draws building)
  *   'bldg-tr'|'bldg-bl'|'bldg-br' → other 3 tiles (silent)
  *
@@ -13,8 +13,10 @@
 
 export type HouseRole =
   | 'single'
-  | 'duplex-a'
-  | 'duplex-b'
+  | 'duplex-h-a'
+  | 'duplex-h-b'
+  | 'duplex-v-a'
+  | 'duplex-v-b'
   | 'bldg-tl'
   | 'bldg-tr'
   | 'bldg-bl'
@@ -68,8 +70,8 @@ export function computeHouseRoles(
         isHouse(map, row, col) &&
         isHouse(map, row, col + 1)
       ) {
-        claim(col,     row, 'duplex-a');
-        claim(col + 1, row, 'duplex-b');
+        claim(col,     row, 'duplex-h-a');
+        claim(col + 1, row, 'duplex-h-b');
       }
     }
   }
@@ -83,8 +85,8 @@ export function computeHouseRoles(
         isHouse(map, row, col) &&
         isHouse(map, row + 1, col)
       ) {
-        claim(col, row,     'duplex-a');
-        claim(col, row + 1, 'duplex-b');
+        claim(col, row,     'duplex-v-a');
+        claim(col, row + 1, 'duplex-v-b');
       }
     }
   }

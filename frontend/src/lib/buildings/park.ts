@@ -1,4 +1,4 @@
-import { DrawArgs } from './types.ts';
+import type { DrawArgs } from './types.ts';
 import { PROCEDURAL_DETAIL_ZOOM } from './constants.ts';
 import { footprint, silhouette, buildingVariant } from './helpers.ts';
 
@@ -136,6 +136,17 @@ export function drawPark(args: DrawArgs) {
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'r', 0);
 
   const { cx, base, hw, hh } = footprint(args, GROUND, GROUND2);
+  // Park props are laid out in a local screen frame. Rotate that frame with
+  // the projected grid so trees, paths and benches stay attached to the lot.
+  const { project, tileCol, tileRow } = args;
+  if (project && tileCol != null && tileRow != null) {
+    const p = project(tileCol, tileRow), q = project(tileCol + 1, tileRow);
+    const angle = Math.atan2(q.y - p.y, q.x - p.x) - Math.atan2(16, 32);
+    ctx.save();
+    ctx.translate(cx, base);
+    ctx.rotate(angle);
+    ctx.translate(-cx, -base);
+  }
   const variant = pickVariant(parkSize);
 
   // Within a cluster, use seed to avoid all tiles looking identical when
@@ -147,4 +158,5 @@ export function drawPark(args: DrawArgs) {
   else if (variant === 1) v2(ctx, cx, base, hw, hh, zoom);
   else if (variant === 2) v3(ctx, cx, base, hw, hh, zoom);
   else                    v4(ctx, cx, base, hw, hh, zoom);
+  if (project && tileCol != null && tileRow != null) ctx.restore();
 }

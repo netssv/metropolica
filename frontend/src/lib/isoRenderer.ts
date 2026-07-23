@@ -68,7 +68,7 @@ export function drawIsoTile(
   // This sheet has no standalone road sprite. Keep streets procedural so
   // their asphalt texture remains distinct from grass and decoration.
   if (tile.type === T.ROAD || tile.type === T.BRIDGE) {
-    drawRoad(ctx, px, py, zoom, tile.type === T.BRIDGE, col, row, map);
+    drawRoad(ctx, px, py, zoom, tile.type === T.BRIDGE, col, row, map, project);
     if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
     return;
   }
@@ -76,7 +76,7 @@ export function drawIsoTile(
   const terrainColor = TERRAIN_COLOR[tile.type];
   if (terrainColor) {
     drawDiamond(ctx, px, py, zoom, terrainColor);
-    drawTerrainDetails(ctx, px, py, zoom, tile.type, col * 31 + row * 17);
+    drawTerrainDetails(ctx, px, py, zoom, tile.type, col * 31 + row * 17, project, col, row);
     if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
     return;
   }
@@ -95,7 +95,7 @@ export function drawIsoTile(
       (night ||
         (typeof document !== 'undefined' &&
           document.body.dataset.metropolicaNight === 'true'));
-    const inset = buildingStreetInset(map, col, row, zoom);
+    const inset = buildingStreetInset(map, col, row, zoom, project);
     const buildingPx = px + inset.x;
     const buildingPy = py + inset.y;
     drawBuilding(
@@ -126,7 +126,7 @@ export function drawIsoTile(
   }
   if (tile.type === T.PARK) {
     const parkSize = tile.parkSize ?? 1;
-    drawPark({ ctx, px, py, zoom, seed, parkSize });
+    drawPark({ ctx, px, py, zoom, seed, parkSize, project, tileCol: col, tileRow: row });
     if (tile.inCrisis) drawCrisisTint(ctx, px, py, zoom);
     return;
   }

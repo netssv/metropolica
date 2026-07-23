@@ -43,7 +43,7 @@ function DistrictsTab({ districts }: { districts: any[] }) {
     </div>
     <div className="district-card census-card">
       <div className="dc-header"><span className="dc-name">Censo de ciudad</span></div>
-      <div className="svc-row"><span>Distrito</span><span>Resid. · Com. · Industrial</span></div>
+      <div className="svc-row"><span>Distrito</span><span>Resid. · Com. · Ind.</span></div>
       {[...districts.map(d => ({ id: d.id, c: d.census })), { id: 'citywide', c: districts.reduce((sum, d) => ({ residencial: { total: (sum.residencial?.total ?? 0) + (d.census?.residencial?.total ?? 0) }, comercial: (sum.comercial ?? 0) + (d.census?.comercial ?? 0), industrial: (sum.industrial ?? 0) + (d.census?.industrial ?? 0) }), {}) }].map(({ id, c }: any) => <div className="svc-row" key={id}><span>{id === 'citywide' ? 'Total citywide' : t(id)}</span><span>{c?.residencial?.total ?? 0} · {c?.comercial ?? 0} · {c?.industrial ?? 0}</span></div>)}
     </div>
     </>

@@ -1,6 +1,6 @@
-import { DrawArgs, Tier } from './types.ts';
+import type { DrawArgs, Tier } from './types.ts';
 import { PROCEDURAL_DETAIL_ZOOM, palettes, factoryTint } from './constants.ts';
-import { buildingVariant, footprint, silhouette, lot } from './helpers.ts';
+import { buildingVariant, footprint, silhouette, lot, drawAnimatedWindow } from './helpers.ts';
 
 export function factory(args: DrawArgs, tier: Tier) {
   const { ctx, zoom, seed = 0 } = args;
@@ -28,8 +28,7 @@ export function factory(args: DrawArgs, tier: Tier) {
     );
   }
 
-  ctx.fillStyle = '#c6c9b7';
   for (let x = cx - hw * 0.6; x < cx + hw * 0.35; x += 10 * zoom) {
-    ctx.fillRect(x, base - hh - height + 5 * zoom, 5 * zoom, 4 * zoom);
+    drawAnimatedWindow(args, x, base - hh - height + 5 * zoom, 5, 4, seed + Math.round(x));
   }
 }

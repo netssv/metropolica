@@ -11,7 +11,8 @@ export function drawTrafficSignalHeads(
   map: TileMap | undefined,
   col: number,
   row: number,
-  time: number
+  time: number,
+  project?: (col: number, row: number) => { x: number; y: number }
 ) {
   if (zoom < 0.6 || !isRoadAt(map, col, row)) return;
   const arms = [
@@ -27,8 +28,13 @@ export function drawTrafficSignalHeads(
 
   for (const arm of arms) {
     const visual = signalVisualState(arm.axis, time);
-    const sx = cx + arm.offset.x;
-    const sy = cy + arm.offset.y;
+    const neighbor = project?.(arm.col, arm.row);
+    const self = project?.(col, row);
+    const dx = neighbor && self ? neighbor.x - self.x : arm.offset.x;
+    const dy = neighbor && self ? neighbor.y - self.y : arm.offset.y;
+    const length = Math.max(1, Math.hypot(dx, dy));
+    const sx = cx + (dx / length) * 16 * zoom;
+    const sy = cy + (dy / length) * 16 * zoom;
 
     ctx.strokeStyle = '#20252a';
     ctx.lineWidth = Math.max(1, zoom * 1.2);

@@ -25,12 +25,14 @@ export function useMapRenderer({ canvasRef, miniMapRef, tileMapRef, simStateRef,
     const draw = (time: number) => {
       const { zoom, ox, oy } = camera.values(); if (zoom < .6 && time - lastLowZoomFrame < 32) { frameId = requestAnimationFrame(draw); return; } if (zoom < .6) lastLowZoomFrame = time;
       ctx.fillStyle = '#07100d'; ctx.fillRect(0, 0, canvas.width, canvas.height); const map = tileMapRef.current; if (!map?.length) { frameId = requestAnimationFrame(draw); return; } const project = camera.project; const margin = 180 * Math.max(1, zoom); let visibleTiles = 0; const tileStart = performance.now();
+      // Painter order must follow the rotated projected depth, otherwise a building
+      // can incorrectly paint over a nearer tile after a quarter-turn.
+      const drawOrder: { tile: any; col: number; row: number; projected: { x: number; y: number } }[] = map.flatMap((tiles: any[], row: number) => (tiles ?? []).map((tile: any, col: number) => ({ tile, col, row, projected: project(col, row) }))).sort((a: { projected: { x: number; y: number } }, b: { projected: { x: number; y: number } }) => a.projected.y - b.projected.y || a.projected.x - b.projected.x);
       const houseRoles = computeHouseRoles(map, mapRows, mapCols);
       const housingByTile = new Map<string, { income: number; householdSize: number }>(); const stateForHousing = simStateRef.current; for (const [districtId, districtCitizens] of Object.entries(stateForHousing?.citizens ?? {})) for (const citizen of districtCitizens as any[]) { if (!citizen.homeTile) continue; const index = Number(String(citizen.householdId ?? '').split('-').pop()); const income = (stateForHousing?.districts ?? []).find((d: any) => d.id === districtId)?.cohorts?.[index]?.income ?? 0; const key = `${districtId}:${citizen.homeTile.col}:${citizen.homeTile.row}`; const previous = housingByTile.get(key); housingByTile.set(key, { income: Math.max(previous?.income ?? 0, income), householdSize: (previous?.householdSize ?? 0) + 1 }); } const markerSet = new Set<string>(); const markerTilesByDistrict = new Map<string, any[]>(); for (const row of map) for (const tile of row ?? []) { const key = tile.owner ?? ''; const list = markerTilesByDistrict.get(key) ?? []; list.push(tile); markerTilesByDistrict.set(key, list); } for (const tiles of markerTilesByDistrict.values()) for (const service of ['gasoline', 'supermarket'] as const) for (const tile of selectBusinessMarkers(tiles, service)) markerSet.add(`${tile.type}:${tile.col}:${tile.row}`);
       // 1. Draw base terrain & roads
-      for (let sum = 0; sum <= mapCols + mapRows - 2; sum++) for (let row = Math.max(0, sum - mapCols + 1); row <= Math.min(sum, mapRows - 1); row++) {
-        const col = sum - row; const tile = map[row]?.[col]; if (!tile) continue;
-        const projected = project(col, row);
+      for (const { tile, col, row, projected } of drawOrder) {
+        if (!tile) continue;
         if (projected.x > canvas.width + margin || projected.x + ISO_TILE_W * zoom < -margin || projected.y > canvas.height + margin || projected.y + ISO_TILE_H * zoom * 3.5 < -margin) continue;
         if (tile.type === T.BLDG_R || tile.type === T.BLDG_C || tile.type === T.BLDG_I || tile.type === T.ZONE_R || tile.type === T.ZONE_C || tile.type === T.ZONE_I || tile.type === T.POWER || tile.type === T.PARK) {
           // Draw terrain base only during the first terrain pass
@@ -42,9 +44,8 @@ export function useMapRenderer({ canvasRef, miniMapRef, tileMapRef, simStateRef,
       }
 
       // 2. Repaint bridge decks so water doesn't cover them
-      for (let sum = 0; sum <= mapCols + mapRows - 2; sum++) for (let row = Math.max(0, sum - mapCols + 1); row <= Math.min(sum, mapRows - 1); row++) {
-        const col = sum - row; const tile = map[row]?.[col]; if (!tile || tile.type !== T.BRIDGE) continue;
-        const projected = project(col, row);
+      for (const { tile, col, row, projected } of drawOrder) {
+        if (!tile || tile.type !== T.BRIDGE) continue;
         if (projected.x > canvas.width + margin || projected.x + ISO_TILE_W * zoom < -margin || projected.y > canvas.height + margin || projected.y + ISO_TILE_H * zoom * 3.5 < -margin) continue;
         drawIsoTile(ctx, tile, col, row, ox, oy, zoom, map, project, time);
       }
@@ -52,27 +53,33 @@ export function useMapRenderer({ canvasRef, miniMapRef, tileMapRef, simStateRef,
       // 3. Draw Sidewalks & Crosswalks OVER road/bridge asphalt
       drawSidewalkInfrastructure(ctx, map, project, zoom, time);
 
+      // Draw pedestrians before buildings so building facades occlude them
+      // whenever their sidewalk path is behind the structure.
+      drawDecorativePedestrians(ctx, map, project, zoom, time, (stateForHousing?.citizens ? Object.values(stateForHousing.citizens).flat() : []) as any[]);
+
       // 4. Draw Buildings in Isometric back-to-front order OVER terrain & sidewalks
-      for (let sum = 0; sum <= mapCols + mapRows - 2; sum++) for (let row = Math.max(0, sum - mapCols + 1); row <= Math.min(sum, mapRows - 1); row++) {
-        const col = sum - row; const tile = map[row]?.[col]; if (!tile) continue;
+      for (const { tile, col, row, projected } of drawOrder) {
+        if (!tile) continue;
         if (!tile.type.startsWith('bldg-') && !tile.type.startsWith('zone-') && tile.type !== T.POWER && tile.type !== T.PARK) continue;
-        const projected = project(col, row);
         if (projected.x > canvas.width + margin || projected.x + ISO_TILE_W * zoom < -margin || projected.y > canvas.height + margin || projected.y + ISO_TILE_H * zoom * 3.5 < -margin) continue;
         visibleTiles++;
         const district = simStateRef.current?.districts?.find((d: any) => d.id === tile.owner);
         const growthTier = !district ? 0 : district.population >= 2000 && district.economy?.averageIncome >= 2000 && district.approval >= .65 ? 2 : district.population >= 700 && district.economy?.averageIncome >= 1000 && district.approval >= .45 ? 1 : 0;
         const housing = tile.type === T.BLDG_R || tile.type === T.ZONE_R ? housingByTile.get(`${tile.owner ?? ''}:${col}:${row}`) : undefined;
         const occupiedResidentialTier = !housing ? 0 : housing.householdSize >= 2 ? 2 : 1;
-        const effectiveGrowthTier = tile.type === T.BLDG_R || tile.type === T.ZONE_R ? occupiedResidentialTier : growthTier;
+        // Seeded buildings represent operating businesses/factories and must be
+        // visible from day one. Fresh zones remain lots until the economic
+        // development system promotes them.
+        const builtStructureTier = tile.type.startsWith('bldg-') ? Math.max(1, growthTier) : growthTier;
+        const effectiveGrowthTier = tile.type === T.BLDG_R || tile.type === T.ZONE_R ? occupiedResidentialTier : builtStructureTier;
         const houseRole = houseRoles.get(`${col}:${row}`);
         const start = performance.now();
         drawIsoTile(ctx, { ...tile, housing, houseRole, businessAccentTiles: markerSet.has(`${tile.type}:${col}:${row}`) ? [tile] : [], inCrisis: district?.social?.atRisk ?? false, growthTier: effectiveGrowthTier }, col, row, ox, oy, zoom, map, project, time);
         proceduralBuildingMs += performance.now() - start;
       }
 
-      // 5. Draw Pedestrians, Traffic, and Signal heads ON TOP of roads and buildings
-      drawDecorativePedestrians(ctx, map, project, zoom, time, (stateForHousing?.citizens ? Object.values(stateForHousing.citizens).flat() : []) as any[]);
-      for (let sum = 0; sum <= mapCols + mapRows - 2; sum++) for (let row = Math.max(0, sum - mapCols + 1); row <= Math.min(sum, mapRows - 1); row++) { const col = sum - row; const tile = map[row]?.[col]; if (!tile) continue; const projected = project(col, row); if (projected.x > canvas.width + margin || projected.x + ISO_TILE_W * zoom < -margin || projected.y > canvas.height + margin || projected.y + ISO_TILE_H * zoom * 3.5 < -margin) continue; drawTrafficSignalHeads(ctx, projected.x, projected.y, zoom, map, col, row, time); }
+      // 5. Draw Traffic and Signal heads over roads and buildings
+      for (const { tile, col, row, projected } of drawOrder) { if (!tile) continue; if (projected.x > canvas.width + margin || projected.x + ISO_TILE_W * zoom < -margin || projected.y > canvas.height + margin || projected.y + ISO_TILE_H * zoom * 3.5 < -margin) continue; drawTrafficSignalHeads(ctx, projected.x, projected.y, zoom, map, col, row, time, project); }
       tileDrawMs += performance.now() - tileStart; timingFrames++; frameSamples++; if (frameSamples >= 120) { const elapsed = performance.now() - sampleStart; const b = { fps: Math.round(frameSamples * 1000 / elapsed), frameMs: +(elapsed / frameSamples).toFixed(2), visibleTiles, totalTiles: mapCols * mapRows, zoom: +zoom.toFixed(2) }; console.info('[render-benchmark]', b); recordRenderDiagnostic('[render-benchmark]', b); frameSamples = 0; sampleStart = performance.now(); }
       const state = simStateRef.current; const start = performance.now(); transit.syncState(state?.day ?? 1, state?.hour ?? 0); const householdIncomes: Record<string, number> = {}; for (const district of state?.districts ?? []) for (const [index, cohort] of (district.cohorts ?? []).entries()) householdIncomes[`${district.id}-cohort-${index}`] = cohort.income ?? 0; transit.updateAndDraw(ctx, time, ox, oy, zoom, map, (state?.citizens ? Object.values(state.citizens).flat() : []) as any[], state?.day ?? 1, state?.hour ?? 0, state?.speed ?? 1, zoom >= PROCEDURAL_DETAIL_ZOOM, project, selectedEntityRef.current?.kind === 'citizen' ? selectedEntityRef.current.value.id : undefined, command => fetch('/api/command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command) }), householdIncomes); citizenMs += performance.now() - start;
       const hour = state?.hour ?? 0;

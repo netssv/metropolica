@@ -1,12 +1,12 @@
 /**
  * Duplex renderer – draws a wide two-unit townhouse spanning 2 adjacent tiles.
- * Called only on the anchor tile (duplex-a); the partner tile is silent.
+ * Called only on the duplex anchor tile; the partner tile is silent.
  *
  * In isometric space a horizontal duplex (same row, col and col+1) looks like
  * two diamonds side-by-side, so we use the anchor px/py as origin and offset
  * the second unit by one tile width.
  */
-import { DrawArgs } from './types.ts';
+import type { DrawArgs } from './types.ts';
 import { PROCEDURAL_DETAIL_ZOOM, palettes, roofs } from './constants.ts';
 import { ISO_TILE_W, ISO_TILE_H } from '../isoMath.ts';
 
@@ -17,8 +17,8 @@ const ROOF_B  = '#8a5a3c';
 const WIN     = '#ffe9a3';   // lit window
 const WIN_DAY = '#d7e3c0';   // day window
 
-export function drawDuplex(args: DrawArgs) {
-  const { ctx, px, py, zoom, seed = 0, night = false } = args;
+export function drawDuplex(args: DrawArgs, direction: 'horizontal' | 'vertical' = 'horizontal') {
+  const { ctx, px, py, zoom, seed = 0, night = false, project, tileCol, tileRow } = args;
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return;
 
   const TW = ISO_TILE_W * zoom;   // full tile bounding width
@@ -70,10 +70,14 @@ export function drawDuplex(args: DrawArgs) {
   ctx.closePath();
   ctx.fill();
 
-  // ── unit B (right tile, offset by one tile to the right in iso) ──────────
-  // In iso the next col tile starts at px + TW/2 (screen x shift for col+1)
-  const pxB = px + TW / 2;
-  const pyB = py + TH / 2;           // col+1, same row → shifted right+down
+  // ── unit B (adjacent tile) ───────────────────────────────────────────────
+  // Resolve its position via the camera so it stays attached to its map cell
+  // after a quarter-turn instead of using the original-view screen offset.
+  const neighbor = project && tileCol != null && tileRow != null
+    ? project(tileCol + (direction === 'horizontal' ? 1 : 0), tileRow + (direction === 'vertical' ? 1 : 0))
+    : { x: px + (direction === 'horizontal' ? TW / 2 : -TW / 2), y: py + TH / 2 };
+  const pxB = neighbor.x;
+  const pyB = neighbor.y;
   const cxB = pxB + TW / 2;
   const baseB = pyB + TH;
   const hwB = TW * 0.3;

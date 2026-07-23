@@ -4,7 +4,7 @@ import {
   sidewalkPoint,
   type Side
 } from '../sidewalkSystem.ts';
-import { Point, MapTile, ScreenPoint } from './types.ts';
+import type { Point, MapTile, ScreenPoint } from './types.ts';
 import { clamp01 } from './utils.ts';
 
 export function visualSidewalkPath(
