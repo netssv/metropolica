@@ -158,6 +158,7 @@ export default function DevModeOverlay({ mapCamera }: Props) {
             {activeTab === 'inspector' && (
               <DevInspectorPanel
                 selectedObject={selectedObject}
+                mapCamera={mapCamera}
                 onClose={() => setSelectedObject(null)}
               />
             )}

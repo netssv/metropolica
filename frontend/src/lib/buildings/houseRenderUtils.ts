@@ -5,7 +5,7 @@ function darken(hex: string, r: number): string {
   return `#${ch(16)}${ch(8)}${ch(0)}`;
 }
 
-export { drawWindow, drawDoor } from './houseFeatures.ts';
+export { drawOrientedHouse } from './houseFeatures.ts';
 
 export interface HousePalette {
   wallLight: string;

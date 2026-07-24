@@ -21,6 +21,8 @@ export interface DuplexHorizTuneParams {
   canopyYMult:  number; // Nivel marquesina (fracción de height)
   winYMult:     number; // Nivel ventanas fachada frontal (fracción de height)
   sideWinYMult: number; // Nivel ventanas pared lateral (fracción de height)
+  rearWinYMult: number; // Nivel fila superior de ventanas traseras
+  rearLowerWinYMult: number; // Nivel fila inferior de ventanas traseras
   chimneyPosT:  number; // Posición chimenea a lo largo del tejado (0..1)
   chimneyDepth: number; // Profundidad chimenea en el tejado (0..1)
   chimneyH:     number; // Altura chimenea (px)
@@ -46,6 +48,8 @@ export const DUPLEX_HORIZ_DEFAULTS: DuplexHorizTuneParams = {
   canopyYMult:  0.48,
   winYMult:     0.62,
   sideWinYMult: 0.60,
+  rearWinYMult: 0.30,
+  rearLowerWinYMult: 0.10,
   chimneyPosT:  0.28,
   chimneyDepth: 0.35,
   chimneyH:     7.5,

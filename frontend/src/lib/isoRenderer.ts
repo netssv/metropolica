@@ -103,7 +103,7 @@ export function drawIsoTile(
       drawBuilding(
         tile.type,
         tile.growthTier ?? 0,
-        { ctx, px: buildingPx, py: buildingPy, zoom, seed, night: visualNight, time, houseRole: tile.houseRole, tileCol: col, tileRow: row, project, rotation },
+        { ctx, px: buildingPx, py: buildingPy, zoom, seed, night: visualNight, time, houseRole: tile.houseRole, tileCol: col, tileRow: row, project, rotation, map },
         tile.specialty,
         tile.housing
       );

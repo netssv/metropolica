@@ -49,9 +49,11 @@ export function drawBuildingsLayer(
           ? housingByTile.get(`${tile.owner ?? ''}:${col}:${row}`)
           : undefined;
       const occupiedResidentialTier = !housing ? 0 : housing.householdSize >= 2 ? 2 : 1;
-      const builtStructureTier = tile.type.startsWith('bldg-') ? Math.max(1, growthTier) : growthTier;
+      const builtStructureTier = Math.max(1, growthTier);
       const effectiveGrowthTier =
-        tile.type === T.BLDG_R || tile.type === T.ZONE_R ? occupiedResidentialTier : builtStructureTier;
+        tile.type === T.BLDG_R || tile.type === T.BLDG_C || tile.type === T.BLDG_I
+          ? Math.max(1, occupiedResidentialTier)
+          : builtStructureTier;
       const houseRole = houseRoles.get(`${col}:${row}`);
 
       const start = performance.now();

@@ -17,6 +17,8 @@ export type DrawArgs = {
   project?: (col: number, row: number) => { x: number; y: number };
   /** Camera quarter-turn, when available, for orientation-sensitive details. */
   rotation?: number;
+  /** Full map grid reference for adjacent road orientation checks */
+  map?: any[][];
 };
 
 export type HousingProfile = {

@@ -7,89 +7,70 @@ import { genericTune, GenericBuildingTuneParams } from '../../lib/buildings/gene
 import DevTuneHorizDuplex from './DevTuneHorizDuplex';
 import DevTuneVertDuplex from './DevTuneVertDuplex';
 import DevTuneGeneric from './DevTuneGeneric';
+import DevInspectorHeader from './DevInspectorHeader';
+import {
+  getGenericTuneKey,
+  formatHorizTuneCode,
+  formatVertTuneCode,
+  formatGenericTuneCode,
+} from './devInspectorUtils';
 
 interface Props {
   selectedObject: SelectedObjectInfo | null;
+  mapCamera?: any;
   onClose: () => void;
 }
 
-export default function DevInspectorPanel({ selectedObject, onClose }: Props) {
+export default function DevInspectorPanel({ selectedObject, mapCamera, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<'state' | 'tune' | 'history' | 'raw'>('state');
   const [tuneParams, setTuneParams] = useState<DuplexHorizTuneParams>(duplexHorizTune.getParams());
   const [vertTuneParams, setVertTuneParams] = useState<DuplexVertTuneParams>(duplexVertTune.getParams());
   const [genericTuneParams, setGenericTuneParams] = useState<Record<string, GenericBuildingTuneParams>>({});
   const [duplexMode, setDuplexMode] = useState<'horiz' | 'vert' | 'generic'>('horiz');
   const [copied, setCopied] = useState(false);
+  const [liveCamRot, setLiveCamRot] = useState(0);
+
+  const rawCamRot = mapCamera?.ref?.current?.rotation ?? mapCamera?.values?.()?.rotation ?? mapCamera?.rotation ?? tuneParams.rotation ?? 0;
+  const currentCameraRot = liveCamRot ?? (((Math.round(rawCamRot) % 4) + 4) % 4);
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      const rotVal = mapCamera?.ref?.current?.rotation ?? mapCamera?.values?.()?.rotation ?? 0;
+      setLiveCamRot(((Math.round(rotVal) % 4) + 4) % 4);
+    }, 200);
+
     const unsubH = duplexHorizTune.subscribe((newParams) => setTuneParams(newParams));
     const unsubV = duplexVertTune.subscribe((newParams) => setVertTuneParams(newParams));
     const unsubG = genericTune.subscribe((newParams) => setGenericTuneParams(newParams));
-    return () => { unsubH(); unsubV(); unsubG(); };
-  }, []);
+    return () => { clearInterval(interval); unsubH(); unsubV(); unsubG(); };
+  }, [mapCamera]);
 
   useEffect(() => {
     if (!selectedObject) return;
     const nameStr = (selectedObject.name || '').toLowerCase();
     const typeStr = (selectedObject.type || '').toLowerCase();
-    
-    if (nameStr.includes('duplex') || typeStr.includes('duplex')) {
-      const isVert = nameStr.includes('vertical') || typeStr.includes('vertical') || selectedObject.state?.orientation === 'vertical';
+    const role = selectedObject.state?.houseRole as string | undefined;
+    const duplexOrientation = selectedObject.state?.duplexOrientation as string | undefined;
+
+    if (nameStr.includes('duplex') || typeStr.includes('duplex') || role?.startsWith('duplex-') || duplexOrientation) {
+      const isVert = nameStr.includes('vertical') || typeStr.includes('vertical') || selectedObject.state?.orientation === 'vertical' || role?.startsWith('duplex-v') || duplexOrientation === 'vertical';
       setDuplexMode(isVert ? 'vert' : 'horiz');
     } else {
       setDuplexMode('generic');
     }
   }, [selectedObject]);
 
-  const handleCopyCode = () => {
-    const code = `// Parámetros Tuned para Dúplex Horizontal:
-const height     = ${tuneParams.height} * zoom;
-const peak       = ${tuneParams.peak} * zoom;
-const baseH      = ${tuneParams.baseH} * zoom;
-const depthX     = TW * ${tuneParams.depthMultX};
-const depthY     = TH * ${tuneParams.depthMultY};
-const facadeMult  = ${tuneParams.facadeMult};
-const rotAngle   = ${tuneParams.rotAngle};
-const offsetX    = ${tuneParams.offsetX};
-const offsetY    = ${tuneParams.offsetY};
-const doorScale  = ${tuneParams.doorScale};
-const winScale   = ${tuneParams.winScale};
-// ── Volumen y niveles:
-const backAlpha   = ${tuneParams.backAlpha};
-const rightAlpha  = ${tuneParams.rightAlpha};
-const canopyYMult = ${tuneParams.canopyYMult};
-const winYMult    = ${tuneParams.winYMult};
-const sideWinYMult = ${tuneParams.sideWinYMult};
-const rotation    = ${tuneParams.rotation}; // 0=SW 1=SE 2=NE 3=NW`;
-
-    navigator.clipboard.writeText(code);
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCopyVertCode = () => {
-    const code = `// Parámetros Tuned para Dúplex Vertical:
-const height       = ${vertTuneParams.height};
-const peak         = ${vertTuneParams.peak};
-const baseH        = ${vertTuneParams.baseH};
-const chimneyPosT  = ${vertTuneParams.chimneyPosT};
-const chimneyDepth = ${vertTuneParams.chimneyDepth};
-const chimneyH     = ${vertTuneParams.chimneyH};
-const rotation     = ${vertTuneParams.rotation};`;
-
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleCopyGenericCode = (activeKey: string) => {
-    const p = genericTune.getParams(activeKey);
-    const code = `// Parámetros Tuned RAW para '${activeKey}' (Copiado para IDE Agent):
-${JSON.stringify({ [activeKey]: p }, null, 2)}`;
-
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyView = () => {
+    if (!selectedObject) return;
+    const rotNames = ['SW (Frontal)', 'SE (Derecha)', 'NE (Trasera)', 'NW (Izquierda)'];
+    const summary = `rot: ${currentCameraRot} (${rotNames[currentCameraRot % 4]}), objeto: "${selectedObject.name}" (${selectedObject.type}), grid: (${selectedObject.gridPos.col}, ${selectedObject.gridPos.row})`;
+    copyToClipboard(summary);
   };
 
   if (!selectedObject) {
@@ -103,18 +84,13 @@ ${JSON.stringify({ [activeKey]: p }, null, 2)}`;
 
   return (
     <div className="dev-inspector-content">
-      <div className="dev-inspector-header">
-        <div>
-          <span className="dev-object-type">{selectedObject.type}</span>
-          <h3 className="dev-object-name">{selectedObject.name}</h3>
-        </div>
-        <button className="dev-close-btn" onClick={onClose} title="Cerrar Inspector">✕</button>
-      </div>
-
-      <div className="dev-coords-bar">
-        <span className="dev-coord-tag">Grid: ({selectedObject.gridPos.col}, {selectedObject.gridPos.row})</span>
-        <span className="dev-coord-tag">Iso: ({selectedObject.isoPos.x.toFixed(1)}, {selectedObject.isoPos.y.toFixed(1)})</span>
-      </div>
+      <DevInspectorHeader
+        selectedObject={selectedObject}
+        currentCameraRot={currentCameraRot}
+        copied={copied}
+        onCopyView={handleCopyView}
+        onClose={onClose}
+      />
 
       <div className="dev-inspector-tabs">
         <button className={activeTab === 'state' ? 'active' : ''} onClick={() => setActiveTab('state')}>Estado</button>
@@ -143,7 +119,7 @@ ${JSON.stringify({ [activeKey]: p }, null, 2)}`;
               <DevTuneHorizDuplex
                 tuneParams={tuneParams}
                 copied={copied}
-                onCopy={handleCopyCode}
+                onCopy={() => copyToClipboard(formatHorizTuneCode(tuneParams))}
               />
             )}
 
@@ -151,7 +127,7 @@ ${JSON.stringify({ [activeKey]: p }, null, 2)}`;
               <DevTuneVertDuplex
                 tuneParams={vertTuneParams}
                 copied={copied}
-                onCopy={handleCopyVertCode}
+                onCopy={() => copyToClipboard(formatVertTuneCode(vertTuneParams))}
               />
             )}
 
@@ -159,9 +135,10 @@ ${JSON.stringify({ [activeKey]: p }, null, 2)}`;
               <DevTuneGeneric
                 selectedObjectName={selectedObject?.name}
                 selectedObjectType={selectedObject?.type}
+                activeKey={getGenericTuneKey(selectedObject)}
                 genericTuneParams={genericTuneParams}
                 copied={copied}
-                onCopy={handleCopyGenericCode}
+                onCopy={(activeKey) => copyToClipboard(formatGenericTuneCode(activeKey))}
               />
             )}
           </div>
@@ -184,3 +161,4 @@ ${JSON.stringify({ [activeKey]: p }, null, 2)}`;
     </div>
   );
 }
+

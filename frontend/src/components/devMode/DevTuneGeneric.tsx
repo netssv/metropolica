@@ -5,6 +5,8 @@ import { genericTune, GenericBuildingTuneParams } from '../../lib/buildings/gene
 interface Props {
   selectedObjectName?: string;
   selectedObjectType?: string;
+  /** Renderer tune key resolved from the selected map object. */
+  activeKey?: string;
   genericTuneParams: Record<string, GenericBuildingTuneParams>;
   copied: boolean;
   onCopy: (activeKey: string) => void;
@@ -13,25 +15,30 @@ interface Props {
 export default function DevTuneGeneric({
   selectedObjectName = '',
   selectedObjectType = '',
+  activeKey: selectedTuneKey,
   genericTuneParams,
   copied,
   onCopy,
 }: Props) {
   const combined = `${selectedObjectName} ${selectedObjectType}`.toLowerCase();
 
-  let activeKey = 'default';
-  if (combined.includes('parque') || combined.includes('park')) activeKey = 'park';
-  else if (combined.includes('puente') || combined.includes('bridge')) activeKey = 'bridge';
-  else if (combined.includes('calle') || combined.includes('carretera') || combined.includes('road') || combined.includes('vía')) activeKey = 'road';
-  else if (combined.includes('árbol') || combined.includes('arbol') || combined.includes('tree')) activeKey = 'tree';
-  else if (combined.includes('agua') || combined.includes('water') || combined.includes('río') || combined.includes('rio')) activeKey = 'water';
-  else if (combined.includes('montaña') || combined.includes('montana') || combined.includes('mountain')) activeKey = 'mountain';
-  else if (combined.includes('hospital')) activeKey = 'hospital';
-  else if (combined.includes('banco') || combined.includes('bank')) activeKey = 'bank';
-  else if (combined.includes('apartment') || combined.includes('apartamento') || combined.includes('nivel 3')) activeKey = 'apartment';
-  else if (combined.includes('casa') || combined.includes('residencial') || combined.includes('bldg-r')) activeKey = 'house';
-  else if (combined.includes('shop') || combined.includes('comercio') || combined.includes('gubernamental')) activeKey = 'shop';
-  else if (combined.includes('factory') || combined.includes('fábrica') || combined.includes('fabrica') || combined.includes('industrial')) activeKey = 'factory';
+  let inferredKey = 'default';
+  if (combined.includes('parque') || combined.includes('park')) inferredKey = 'park';
+  else if (combined.includes('puente') || combined.includes('bridge')) inferredKey = 'bridge';
+  else if (combined.includes('calle') || combined.includes('carretera') || combined.includes('road') || combined.includes('vía')) inferredKey = 'road';
+  else if (combined.includes('árbol') || combined.includes('arbol') || combined.includes('tree')) inferredKey = 'tree';
+  else if (combined.includes('agua') || combined.includes('water') || combined.includes('río') || combined.includes('rio')) inferredKey = 'water';
+  else if (combined.includes('montaña') || combined.includes('montana') || combined.includes('mountain')) inferredKey = 'mountain';
+  else if (combined.includes('hospital')) inferredKey = 'hospital';
+  else if (combined.includes('banco') || combined.includes('bank')) inferredKey = 'bank';
+  else if (combined.includes('apartment') || combined.includes('apartamento') || combined.includes('nivel 3')) inferredKey = 'apartment';
+  else if (combined.includes('casa') || combined.includes('residencial') || combined.includes('bldg-r')) inferredKey = 'house';
+  else if (combined.includes('shop') || combined.includes('comercio') || combined.includes('gubernamental')) inferredKey = 'shop';
+  else if (combined.includes('factory') || combined.includes('fábrica') || combined.includes('fabrica') || combined.includes('industrial')) inferredKey = 'factory';
+
+  // The inspector knows the actual renderer role. Keep the text matching as a
+  // fallback for objects that do not expose a render role yet.
+  const activeKey = selectedTuneKey ?? inferredKey;
 
   const [localParams, setLocalParams] = React.useState<GenericBuildingTuneParams>(
     () => genericTune.getParams(activeKey)

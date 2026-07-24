@@ -30,6 +30,8 @@ export default function DevTuneHorizDuplex({ tuneParams, copied, onCopy }: Props
     ['canopyYMult',  '☂️ Nivel Marquesina',     0.1,  0.8, 0.02, ''],
     ['winYMult',     '🪟 Nivel Ventanas Fach.', 0.1,  0.9, 0.02, ''],
     ['sideWinYMult', '🪟 Nivel Ventanas Lat.',  0.1,  0.9, 0.02, ''],
+    ['rearWinYMult', '🪟 Nivel Ventanas Tras. Sup.', 0.05, 0.75, 0.02, ''],
+    ['rearLowerWinYMult', '🪟 Nivel Ventanas Tras. Inf.', 0.02, 0.60, 0.02, ''],
     ['chimneyPosT',  '🧱 Posición Chimenea',   0.05, 0.95, 0.01, ''],
     ['chimneyDepth', '🧱 Profundidad Chim.',   0.05, 0.85, 0.01, ''],
     ['chimneyH',     '🧱 Altura Chimenea',      4,   20,   1,    'px'],

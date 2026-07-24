@@ -4,7 +4,7 @@ import { buildingVariant, footprint, silhouette, lot } from './helpers.ts';
 import { drawHorizontalDuplex } from './duplexHorizontal.ts';
 import { drawVerticalDuplex } from './duplexVertical.ts';
 import { drawSingleTileDuplex } from './duplexSingleTile.ts';
-import { ISO_TILE_W, ISO_TILE_H } from '../isoMath.ts';
+
 import { drawApartmentBuilding } from './apartment.ts';
 import { genericTune } from './genericTuneState.ts';
 import {
@@ -12,12 +12,12 @@ import {
   drawWhiteBox,
   drawHipRoof,
   drawChimney,
-  drawWindow,
-  drawDoor,
+  drawOrientedHouse,
 } from './houseRenderUtils.ts';
+import { getBuildingFacing } from './streetOrientation.ts';
 
 export function house(args: DrawArgs, tier: Tier, housing?: HousingProfile) {
-  const { ctx, zoom, seed = 0, houseRole = 'single' } = args;
+  const { ctx, zoom, seed = 0, houseRole = 'single', map, tileCol, tileRow } = args;
 
   // Multi-tile cluster roles — DO NOT TOUCH
   if (houseRole === 'duplex-h-a') return drawHorizontalDuplex(args);
@@ -29,23 +29,29 @@ export function house(args: DrawArgs, tier: Tier, housing?: HousingProfile) {
   ) return;
 
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return silhouette(args, 'r', tier);
-  if (tier === 0) return lot(args, palettes.residential[0]);
+
+  // Derive active rendering tier: constructed buildings always draw structure (tier 1 min)
+  const activeTier = (tier === 0 && args.houseRole !== undefined) ? 1 : Math.max(1, tier);
+  if (tier === 0 && !args.houseRole && (housing?.householdSize ?? 0) === 0) {
+    // Empty zoned lot before construction
+    return lot(args, palettes.residential[0]);
+  }
 
   const v = buildingVariant(seed);
   const housePal = getHousePalette(seed);
-  const roofHex = tier === 1 ? housePal.roof : roofs[v];
+  const roofHex = activeTier === 1 ? housePal.roof : roofs[v];
 
   // footprint draws the base lot diamond and returns cx, base, hw, hh
-  const { cx, base, hw, hh } = footprint(args, palettes.residential[tier], roofHex);
+  const { cx, base, hw, hh } = footprint(args, palettes.residential[activeTier], roofHex);
 
   const apartment = (housing?.householdSize ?? 0) >= 3;
   const duplex    = !apartment && (housing?.householdSize ?? 0) >= 2;
   const night  = args.night ?? false;
   const time   = args.time  ?? 0;
 
-  // Level 2 / Duplex rendering path: pass full tile half-dimensions, not footprint sub-dimensions
+  // Level 2 / Duplex rendering path: full DrawArgs forwarded for rotation support
   if (tier === 2 || duplex) {
-    return drawSingleTileDuplex(ctx, cx, base, ISO_TILE_W * zoom / 2, ISO_TILE_H * zoom / 2, zoom, night, seed);
+    return drawSingleTileDuplex(args);
   }
 
   const tune = genericTune.getParams('house');
@@ -55,20 +61,14 @@ export function house(args: DrawArgs, tier: Tier, housing?: HousingProfile) {
   const peak   = (tune.peak ?? 18) * zoom;
   const eave   = 1.5 * zoom;
 
-  // 1. Isometric walls (matching shop facade bounds & varied palettes)
-  drawWhiteBox(ctx, cx, base, hwScaled, hhScaled, height, housePal.wallLight, housePal.wallShade);
+  const rotation = args.rotation ?? 0;
+  // Intelligent rule: detect adjacent street direction ('south', 'west', 'east', 'north')
+  const facing = (tileCol != null && tileRow != null) ? getBuildingFacing(map, tileCol, tileRow) : 'south';
 
-  // 2. Hip roof with eave overhang
-  drawHipRoof(ctx, cx, base, hwScaled, hhScaled, height, peak, roofHex, eave);
-
-  // 3. Chimney (skipped for duplex-variant 1)
-  if (v !== 1 || tier > 1) {
-    drawChimney(ctx, cx, base, hwScaled, hhScaled, height, peak, zoom, night, time, seed);
-  }
-
-  // 4. Window on SW (lit) face
-  drawWindow(ctx, cx, base, hwScaled, hhScaled, height, zoom, night, time, seed);
-
-  // 5. Door on SE (shaded/front) face
-  drawDoor(ctx, cx, base, hwScaled, hhScaled, height, zoom);
+  // Render monolithic house combo volume (walls, roof, door, window, chimney)
+  drawOrientedHouse(
+    ctx, cx, base, hwScaled, hhScaled, height, peak,
+    housePal.wallLight, housePal.wallShade, roofHex, eave,
+    zoom, night, time, seed, rotation, facing
+  );
 }

@@ -5,7 +5,8 @@ type Props = { house: any; onClose: () => void; onSelectCitizen: (citizen: any) 
 
 export default function HouseInspector({ house, onClose, onSelectCitizen }: Props) {
   const income = house.income ?? 0;
-  const type = house.householdSize >= 3 ? 'Edificio de apartamentos' : house.householdSize >= 2 ? 'Dúplex' : 'Casa individual';
+  const duplexLabel = house.duplexOrientation === 'horizontal' ? 'Dúplex horizontal (2×1)' : house.duplexOrientation === 'vertical' ? 'Dúplex vertical (1×2)' : undefined;
+  const type = house.householdSize >= 3 ? 'Edificio de apartamentos' : duplexLabel ?? (house.householdSize >= 2 ? 'Dúplex' : 'Casa individual');
   return <div className="citizen-inspector house-inspector">
     <button className="inspector-close" onClick={onClose} aria-label="Cerrar">×</button>
     <small className="inspector-eyebrow">VIVIENDA RESIDENCIAL</small>

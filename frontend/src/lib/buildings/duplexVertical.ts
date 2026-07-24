@@ -29,11 +29,11 @@ export function drawVerticalDuplex(args: DrawArgs) {
     ? project(tileCol, tileRow)
     : { x: px, y: py };
 
-  const cameraRot = ((Math.round(args.rotation ?? 0) % 4) + 4) % 4;
-  // Dynamic neighbor offset depending on camera view orientation
-  const neighborCol = tileCol != null ? tileCol + (cameraRot === 1 ? 1 : cameraRot === 3 ? -1 : 0) : 0;
-  const neighborRow = tileRow != null ? tileRow + (cameraRot === 0 ? 1 : cameraRot === 2 ? -1 : 0) : 0;
-
+  // This is a persistent 1×2 world footprint.  Camera rotation belongs in
+  // project(), never in the neighbour coordinate: changing it here would
+  // make the house jump onto a different pair of lots.
+  const neighborCol = tileCol ?? 0;
+  const neighborRow = tileRow != null ? tileRow + 1 : 0;
   const pB = project && tileCol != null && tileRow != null
     ? project(neighborCol, neighborRow)
     : { x: px - TW / 2, y: py + TH / 2 };
