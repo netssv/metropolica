@@ -31,7 +31,8 @@ export function drawHorizontalDuplex(args: DrawArgs) {
     : { x: px, y: py };
 
   const tune  = duplexHorizTune.getParams();
-  const rot   = Math.round(tune.rotation) % 4;
+  const cameraRot = Math.round(args.rotation ?? 0) % 4;
+  const rot   = (Math.round(tune.rotation) + cameraRot + 4) % 4;
 
   const height = tune.height * zoom;
   const peak   = tune.peak   * zoom;

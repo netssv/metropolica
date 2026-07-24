@@ -27,6 +27,36 @@ export function gridToIso(col: number, row: number): { x: number; y: number } {
   };
 }
 
+/**
+ * Creates a rotation-invariant projection for building internal geometry.
+ * Buildings use this instead of the camera project so their walls, roofs, and
+ * windows stay consistent regardless of camera quarter-turn.
+ *
+ * anchorPx/anchorPy = the screen position of the building's own tile (already
+ * correctly placed by the rotated camera projection).
+ * anchorCol/anchorRow = the grid coordinates of that tile.
+ *
+ * Any (col, row) request is resolved using fixed isometric offsets from the anchor.
+ */
+export function createBuildingLocalProject(
+  anchorPx: number,
+  anchorPy: number,
+  anchorCol: number,
+  anchorRow: number,
+  zoom: number
+): (col: number, row: number) => { x: number; y: number } {
+  const hw = (ISO_TILE_W / 2) * zoom;
+  const hh = (ISO_TILE_H / 2) * zoom;
+  return (col: number, row: number) => {
+    const dc = col - anchorCol;
+    const dr = row - anchorRow;
+    return {
+      x: anchorPx + (dc - dr) * hw,
+      y: anchorPy + (dc + dr) * hh,
+    };
+  };
+}
+
 /** Canvas pixel (sx, sy) after subtracting camera offset → nearest grid (col, row). */
 export function isoToGrid(sx: number, sy: number): { col: number; row: number } {
   const adjX = sx - ISO_TILE_W / 2;

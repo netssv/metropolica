@@ -29,8 +29,13 @@ export function drawVerticalDuplex(args: DrawArgs) {
     ? project(tileCol, tileRow)
     : { x: px, y: py };
 
+  const cameraRot = ((Math.round(args.rotation ?? 0) % 4) + 4) % 4;
+  // Dynamic neighbor offset depending on camera view orientation
+  const neighborCol = tileCol != null ? tileCol + (cameraRot === 1 ? 1 : cameraRot === 3 ? -1 : 0) : 0;
+  const neighborRow = tileRow != null ? tileRow + (cameraRot === 0 ? 1 : cameraRot === 2 ? -1 : 0) : 0;
+
   const pB = project && tileCol != null && tileRow != null
-    ? project(tileCol, tileRow + 1)
+    ? project(neighborCol, neighborRow)
     : { x: px - TW / 2, y: py + TH / 2 };
 
   const tune   = duplexVertTune.getParams();
