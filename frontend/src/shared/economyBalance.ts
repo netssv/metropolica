@@ -18,6 +18,7 @@ export const DEVELOPMENT_ECONOMY = {
     'zone-c': 2_500,
     hospital: 15_000,
     'mall-government': 11_000,
+    bank: 18_000,
     'zone-i': 3_500,
     road: 600,
     park: 1_000,
@@ -29,7 +30,7 @@ export const DEVELOPMENT_ECONOMY = {
 export type ConstructionType = keyof typeof DEVELOPMENT_ECONOMY.construction;
 
 export function constructionCost(zoneType: string, specialty?: string): number {
-  if (zoneType === 'zone-c' && (specialty === 'hospital' || specialty === 'mall-government')) {
+  if (zoneType === 'zone-c' && (specialty === 'hospital' || specialty === 'mall-government' || specialty === 'bank')) {
     return DEVELOPMENT_ECONOMY.construction[specialty];
   }
   return DEVELOPMENT_ECONOMY.construction[zoneType as ConstructionType] ?? 0;

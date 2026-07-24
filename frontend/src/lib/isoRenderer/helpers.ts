@@ -62,6 +62,10 @@ export function isRoadAt(map: TileMap | undefined, col: number, row: number): bo
   return type === T.ROAD || type === T.BRIDGE;
 }
 
+export function isBridgeAt(map: TileMap | undefined, col: number, row: number): boolean {
+  return map?.[row]?.[col]?.type === T.BRIDGE;
+}
+
 export function isPlainRoadAt(map: TileMap | undefined, col: number, row: number): boolean {
   return map?.[row]?.[col]?.type === T.ROAD;
 }
@@ -70,8 +74,8 @@ export function buildingStreetInset(map: TileMap | undefined, col: number, row: 
   return { x: 0, y: 0 };
 }
 
-export function drawCrisisTint(ctx: CanvasRenderingContext2D, px: number, py: number, zoom: number) {
-  drawDiamond(ctx, px, py, zoom, 'rgba(220,30,30,0.35)');
+export function drawCrisisTint(_ctx: CanvasRenderingContext2D, _px: number, _py: number, _zoom: number) {
+  // Reddish shadow overlay removed per user request
 }
 
 /** BFS flood-fill: count all connected PARK tiles in the cluster at (col,row). */

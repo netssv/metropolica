@@ -17,7 +17,7 @@ export type PlaceZoneCommand = {
   readonly cost: number;
   readonly col: number;
   readonly row: number;
-  readonly specialty?: "hospital" | "mall-government";
+  readonly specialty?: "hospital" | "mall-government" | "bank";
 };
 
 /**

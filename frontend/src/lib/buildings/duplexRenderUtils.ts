@@ -2,9 +2,9 @@
  * Duplex Visual Render Utilities - Level 2 Sage Green Duplex
  * Implements isometric SE/SW wall projections, canopy overhang, concrete steps, and cream-framed windows.
  */
-import { drawDuplexRoof } from './duplexRoofUtils.ts';
-import { DUPLEX_PALETTE } from './duplexPalette.ts';
-export { DUPLEX_PALETTE };
+
+import { DUPLEX_PALETTE, getDuplexPalette } from './duplexPalette.ts';
+export { DUPLEX_PALETTE, getDuplexPalette };
 
 /** Render isometric door on facade vector (P_start -> P_end) */
 export function drawFacadeDoor(
@@ -45,18 +45,29 @@ export function drawFacadeWindow(
   t: number, wT: number, yLevel: number, wH: number,
   zoom: number, night: boolean
 ) {
-  const gx1 = x0 + (x1 - x0) * t;
-  const gy1 = y0 + (y1 - y0) * t - yLevel;
-  const gx2 = x0 + (x1 - x0) * (t + wT);
-  const gy2 = y0 + (y1 - y0) * (t + wT) - yLevel;
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  const ux = len > 0 ? dx / len : 0;
+  const uy = len > 0 ? dy / len : 0;
+
+  const gx1 = x0 + dx * t;
+  const gy1 = y0 + dy * t - yLevel;
+  const gx2 = x0 + dx * (t + wT);
+  const gy2 = y0 + dy * (t + wT) - yLevel;
+
   const fMargin = 1.2 * zoom;
+  const fx1 = gx1 - ux * fMargin;
+  const fy1 = gy1 - uy * fMargin + fMargin * 0.5;
+  const fx2 = gx2 + ux * fMargin;
+  const fy2 = gy2 + uy * fMargin + fMargin * 0.5;
 
   ctx.fillStyle = DUPLEX_PALETTE.trimLight;
   ctx.beginPath();
-  ctx.moveTo(gx1 - fMargin, gy1 + fMargin * 0.5);
-  ctx.lineTo(gx2 + fMargin, gy2 - fMargin * 0.5);
-  ctx.lineTo(gx2 + fMargin, gy2 - fMargin * 0.5 - wH - fMargin * 2);
-  ctx.lineTo(gx1 - fMargin, gy1 + fMargin * 0.5 - wH - fMargin * 2);
+  ctx.moveTo(fx1, fy1);
+  ctx.lineTo(fx2, fy2);
+  ctx.lineTo(fx2, fy2 - wH - fMargin * 1.5);
+  ctx.lineTo(fx1, fy1 - wH - fMargin * 1.5);
   ctx.closePath();
   ctx.fill();
 
@@ -86,11 +97,19 @@ export function drawFacadeCanopy(
   t1: number, t2: number, yLevel: number,
   depthX: number, depthY: number, zoom: number
 ) {
+  const dy = y1 - y0;
+  // Automatic outward normal direction based on facade vector:
+  // dy < 0 (SE facade going up-right) -> +abs(depthX) (down-right overhang)
+  // dy > 0 (SW facade going down-right) -> -abs(depthX) (down-left overhang)
+  const outX = dy < 0 ? Math.abs(depthX) : -Math.abs(depthX);
+  const outY = Math.abs(depthY);
+
   const p1: [number, number] = [x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1 - yLevel];
   const p2: [number, number] = [x0 + (x1 - x0) * t2, y0 + (y1 - y0) * t2 - yLevel];
-  const o1: [number, number] = [p1[0] - depthX, p1[1] + depthY];
-  const o2: [number, number] = [p2[0] - depthX, p2[1] + depthY];
+  const o1: [number, number] = [p1[0] + outX, p1[1] + outY];
+  const o2: [number, number] = [p2[0] + outX, p2[1] + outY];
 
+  // Dark canopy roof slab
   ctx.fillStyle = DUPLEX_PALETTE.canopyDark;
   ctx.beginPath();
   ctx.moveTo(p1[0], p1[1]);
@@ -100,6 +119,7 @@ export function drawFacadeCanopy(
   ctx.closePath();
   ctx.fill();
 
+  // White front trim fascia
   ctx.fillStyle = DUPLEX_PALETTE.trimLight;
   const trimH = 1.8 * zoom;
   ctx.beginPath();
@@ -107,6 +127,24 @@ export function drawFacadeCanopy(
   ctx.lineTo(o2[0], o2[1]);
   ctx.lineTo(o2[0], o2[1] + trimH);
   ctx.lineTo(o1[0], o1[1] + trimH);
+  ctx.closePath();
+  ctx.fill();
+
+  // Side trim brackets connecting to wall
+  ctx.fillStyle = DUPLEX_PALETTE.trimShade;
+  ctx.beginPath();
+  ctx.moveTo(p1[0], p1[1]);
+  ctx.lineTo(o1[0], o1[1]);
+  ctx.lineTo(o1[0], o1[1] + trimH);
+  ctx.lineTo(p1[0], p1[1] + trimH);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(p2[0], p2[1]);
+  ctx.lineTo(o2[0], o2[1]);
+  ctx.lineTo(o2[0], o2[1] + trimH);
+  ctx.lineTo(p2[0], p2[1] + trimH);
   ctx.closePath();
   ctx.fill();
 }
@@ -118,16 +156,20 @@ export function drawFacadeSteps(
   t1: number, t2: number,
   stepDepthX: number, stepDepthY: number, zoom: number
 ) {
+  const dy = y1 - y0;
+  const outX = dy < 0 ? Math.abs(stepDepthX) : -Math.abs(stepDepthX);
+  const outY = Math.abs(stepDepthY);
+
   const stepCount = 4;
   const stepH = 1.2 * zoom;
 
   for (let i = 0; i < stepCount; i++) {
-    const offX = i * stepDepthX;
-    const offY = i * stepDepthY;
-    const s1: [number, number] = [x0 + (x1 - x0) * t1 - offX, y0 + (y1 - y0) * t1 + offY];
-    const s2: [number, number] = [x0 + (x1 - x0) * t2 - offX, y0 + (y1 - y0) * t2 + offY];
-    const e1: [number, number] = [s1[0] - stepDepthX, s1[1] + stepDepthY];
-    const e2: [number, number] = [s2[0] - stepDepthX, s2[1] + stepDepthY];
+    const offX = i * outX;
+    const offY = i * outY;
+    const s1: [number, number] = [x0 + (x1 - x0) * t1 + offX, y0 + (y1 - y0) * t1 + offY];
+    const s2: [number, number] = [x0 + (x1 - x0) * t2 + offX, y0 + (y1 - y0) * t2 + offY];
+    const e1: [number, number] = [s1[0] + outX, s1[1] + outY];
+    const e2: [number, number] = [s2[0] + outX, s2[1] + outY];
 
     ctx.fillStyle = DUPLEX_PALETTE.stepsLight;
     ctx.beginPath();
@@ -147,73 +189,4 @@ export function drawFacadeSteps(
     ctx.closePath();
     ctx.fill();
   }
-}
-
-/** Draw single-tile level 2 house matching reference image proportions */
-export function drawSingleTileDuplex(
-  ctx: CanvasRenderingContext2D,
-  cx: number, base: number, hw: number, hh: number,
-  zoom: number, night: boolean
-) {
-  const height  = 22 * zoom;
-  const peak    = 8  * zoom;
-  const baseH   = 1.5 * zoom;
-
-  // ── SE edge: bottom-center → right-center
-  const seX0 = cx;        const seY0 = base - baseH;
-  const seX1 = cx + hw;   const seY1 = base - hh - baseH;
-
-  // ── SW edge: left-center → bottom-center
-  const swX0 = cx - hw;   const swY0 = base - hh - baseH;
-  const swX1 = cx;        const swY1 = base - baseH;
-
-  // ── Stone base diamond
-  ctx.fillStyle = DUPLEX_PALETTE.baseDark;
-  ctx.beginPath();
-  ctx.moveTo(cx - hw, base - hh);
-  ctx.lineTo(cx,      base);
-  ctx.lineTo(cx + hw, base - hh);
-  ctx.lineTo(cx,      base - hh * 2);
-  ctx.closePath();
-  ctx.fill();
-
-  // ── SW Lit wall
-  ctx.fillStyle = DUPLEX_PALETTE.wallLight;
-  ctx.beginPath();
-  ctx.moveTo(swX0, swY0);
-  ctx.lineTo(swX1, swY1);
-  ctx.lineTo(swX1, swY1 - height);
-  ctx.lineTo(swX0, swY0 - height);
-  ctx.closePath();
-  ctx.fill();
-
-  // ── SE Shaded wall
-  ctx.fillStyle = DUPLEX_PALETTE.wallShade;
-  ctx.beginPath();
-  ctx.moveTo(seX0, seY0);
-  ctx.lineTo(seX1, seY1);
-  ctx.lineTo(seX1, seY1 - height);
-  ctx.lineTo(seX0, seY0 - height);
-  ctx.closePath();
-  ctx.fill();
-
-  // ── Roof: depthX = hw, depthY = hh → back ridge aligns with tile top vertex ✓
-  drawDuplexRoof(ctx, seX0, seY0 - height, seX1, seY1 - height, hw, hh, peak, zoom);
-
-  // ── Entrance on SE facade
-  const stepDX = hw * 0.035;  const stepDY = hh * 0.035;
-  drawFacadeSteps(ctx,  seX0, seY0, seX1, seY1, 0.25, 0.75, stepDX, stepDY, zoom);
-  drawFacadeCanopy(ctx, seX0, seY0, seX1, seY1, 0.22, 0.78, height * 0.34, hw * 0.07, hh * 0.07, zoom);
-  drawFacadeDoor(ctx,   seX0, seY0, seX1, seY1, 0.32, 0.12, 6.5 * zoom, zoom);
-  drawFacadeDoor(ctx,   seX0, seY0, seX1, seY1, 0.56, 0.12, 6.5 * zoom, zoom);
-
-  // ── Upper windows on SE facade
-  const winH = 4.5 * zoom;
-  const winY = height * 0.58;
-  drawFacadeWindow(ctx, seX0, seY0, seX1, seY1, 0.07, 0.22, winY, winH, zoom, night);
-  drawFacadeWindow(ctx, seX0, seY0, seX1, seY1, 0.39, 0.22, winY, winH, zoom, night);
-  drawFacadeWindow(ctx, seX0, seY0, seX1, seY1, 0.71, 0.22, winY, winH, zoom, night);
-
-  // ── Window on SW wall
-  drawFacadeWindow(ctx, swX0, swY0, swX1, swY1, 0.35, 0.30, height * 0.56, 4 * zoom, zoom, night);
 }

@@ -8,12 +8,15 @@ import { PROCEDURAL_DETAIL_ZOOM } from './constants.ts';
 import { ISO_TILE_W, ISO_TILE_H } from '../isoMath.ts';
 import { drawAnimatedWindow, drawRooftopDetails } from './helpers.ts';
 
+import { genericTune } from './genericTuneState.ts';
+
 export function drawApartmentBuilding(args: DrawArgs) {
   const { ctx, px, py, zoom, project, tileCol, tileRow } = args;
   if (zoom < PROCEDURAL_DETAIL_ZOOM) return;
 
-  const TW = ISO_TILE_W * zoom;
-  const TH = ISO_TILE_H * zoom;
+  const tune = genericTune.getParams('apartment');
+  const TW = ISO_TILE_W * zoom * (tune.scaleX ?? 1.0);
+  const TH = ISO_TILE_H * zoom * (tune.scaleY ?? 1.0);
 
   // Derive the four corners from the active camera projection. The previous
   // fixed offsets only describe the north-east view, causing a 2×2 tower to
@@ -55,7 +58,7 @@ export function drawApartmentBuilding(args: DrawArgs) {
   ctx.fill();
 
   // Building geometry metrics
-  const bldgHeight = 54 * zoom;
+  const bldgHeight = (tune.height ?? 54) * zoom;
   const wallLeftColor = '#4a7556';
   const wallRightColor = '#3c6347';
   const roofColor = '#2b4733';

@@ -7,12 +7,10 @@ export type TrafficDecision = { speed: number; reason: 'moving' | 'following' | 
 export type TrafficDecisionContext = { pedestrians?: PedestrianCrossingPresence[]; reservations?: Map<string, string> };
 // Progress is advanced in bounded but discrete frames; keep a buffer larger than one frame
 // so a binary stop decision cannot step into the vehicle ahead.
-export const MINIMUM_QUEUE_GAP = 0.4;
-/** Fraction of the incoming segment where vehicles must stop for a red signal.
- *  Positioned close to the intersection entrance for visual realism. */
-export const SIGNAL_STOP_LINE = 0.72;
-/** Once past this fraction, the vehicle is committed to clearing the intersection. */
-const JUNCTION_COMMIT = 0.88;
+export const MINIMUM_QUEUE_GAP = 0.22;
+/** Fraction of the incoming segment where vehicles stop for a red signal.
+ *  Positioned on the incoming road tile so the front bumper stops prudently BEFORE the crosswalk (0.16). */
+export const SIGNAL_STOP_LINE = 0.16;
 
 const same = (a?: RoadNode, b?: RoadNode) => Boolean(a && b && a.col === b.col && a.row === b.row);
 const segmentIndex = (trip: TrafficTrip) => Math.max(0, Math.min(trip.route.length - 2, Math.floor(trip.progress * Math.max(0, trip.route.length - 1))));
@@ -29,7 +27,6 @@ export function followingGap(trip: TrafficTrip, other: TrafficTrip): number | un
   if (!from || !to || !oFrom || !oTo) return undefined;
 
   const tripTotalSegs = trip.route.length - 1;
-  const otherTotalSegs = other.route.length - 1;
 
   if (same(from, oFrom) && same(to, oTo)) {
     if (other.progress > trip.progress) {
@@ -56,7 +53,7 @@ export function followingGap(trip: TrafficTrip, other: TrafficTrip): number | un
 }
 
 /** Stop on the incoming edge, leaving the junction tile clear. */
-export function stopBeforeJunction(local: number): boolean { return local >= 0.55; }
+export function stopBeforeJunction(local: number): boolean { return local >= SIGNAL_STOP_LINE; }
 
 /** Deterministic car-following and intersection priority for one frame. */
 export function trafficDecision(trips: TrafficTrip[], trip: TrafficTrip, graph: RoadGraph, time: number, context: TrafficDecisionContext = {}): TrafficDecision {
@@ -65,20 +62,20 @@ export function trafficDecision(trips: TrafficTrip[], trip: TrafficTrip, graph: 
   const axis = from.row === to.row ? 'horizontal' : 'vertical';
   const segmentProgress = localProgress(trip, index);
 
-  // Once a vehicle reaches the stop line it is "committed" and must clear the intersection.
-  // This prevents vehicles from stopping inside the junction box.
-  const inJunctionBox = isJunction(graph, from) || (isJunction(graph, to) && segmentProgress >= JUNCTION_COMMIT);
+  // Once a vehicle passes the stop line into an intersection or is exiting a junction,
+  // it is committed and MUST clear the intersection without stopping for red signals.
+  const inJunctionBox = isJunction(graph, from) || (isJunction(graph, to) && segmentProgress > SIGNAL_STOP_LINE);
 
-  // Count vehicles queued ahead on the same lane (for visual indicator depth).
+  // Count vehicles queued ahead on the same lane (for visual indicator depth & realistic traffic queueing).
   const queueAhead = trips.filter(other => other.id !== trip.id && other.route.length > 1 && (followingGap(trip, other) ?? Infinity) < MINIMUM_QUEUE_GAP);
   if (queueAhead.length > 0) return { speed: 0, reason: 'following', queueDepth: queueAhead.length };
 
   if (!inJunctionBox) {
-    if (isJunction(graph, to) && isRedSignal(graph, to, time, axis) && segmentProgress >= SIGNAL_STOP_LINE) {
+    if (isJunction(graph, to) && isRedSignal(graph, to, time, axis) && segmentProgress >= SIGNAL_STOP_LINE - 0.02) {
       return { speed: 0, reason: 'signal', queueDepth: 0 };
     }
 
-    if (isJunction(graph, to) && segmentProgress >= SIGNAL_STOP_LINE) {
+    if (isJunction(graph, to) && segmentProgress >= SIGNAL_STOP_LINE - 0.02) {
       const id = intersectionId(to);
       if (pedestrianBlocksIntersection(context.pedestrians, id)) return { speed: 0, reason: 'yield', queueDepth: 0 };
       const exit = trip.route[index + 2];
@@ -110,10 +107,10 @@ export function trafficDecision(trips: TrafficTrip[], trip: TrafficTrip, graph: 
 export function trafficStateForDecision(decision: TrafficDecision, trip: TrafficTrip, graph: RoadGraph): { state: VehicleState; waitReason: VehicleWaitReason } {
   if (trip.progress >= 1) return { state: 'arrived', waitReason: undefined };
   if (decision.reason === 'signal') return { state: 'waiting_for_signal', waitReason: 'signal' };
-  if (decision.reason === 'yield') return { state: 'waiting_for_space', waitReason: 'space' };
+  if (decision.reason === 'following' || decision.reason === 'yield') return { state: 'waiting_for_space', waitReason: 'space' };
   const index = segmentIndex(trip), to = trip.route[index + 1];
   const junction = isJunction(graph, to);
-  if (junction && localProgress(trip, index) >= 0.9) return { state: 'crossing_intersection', waitReason: undefined };
+  if (junction && localProgress(trip, index) >= SIGNAL_STOP_LINE) return { state: 'crossing_intersection', waitReason: undefined };
   if (junction) return { state: 'approaching_intersection', waitReason: undefined };
   return { state: 'driving', waitReason: undefined };
 }

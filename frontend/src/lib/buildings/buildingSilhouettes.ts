@@ -44,14 +44,14 @@ export function silhouette({ ctx, px, py, zoom }: DrawArgs, type: 'r' | 'c' | 'i
 export function specialtySilhouette(
   { ctx, px, py, zoom }: DrawArgs,
   tier: Tier,
-  kind: 'hospital' | 'mall-government'
+  kind: 'hospital' | 'mall-government' | 'bank'
 ) {
   const w = ISO_TILE_W * zoom;
   const h = ISO_TILE_H * zoom;
   const cx = px + w / 2;
   const base = py + h;
-  const baseColor = kind === 'hospital' ? '#789b95' : '#3c8193';
-  const accent = kind === 'hospital' ? '#d9364b' : '#f0c85a';
+  const baseColor = kind === 'hospital' ? '#789b95' : kind === 'bank' ? '#4a6572' : '#3c8193';
+  const accent = kind === 'hospital' ? '#d9364b' : kind === 'bank' ? '#0284c7' : '#f0c85a';
   const height = tier === 0 ? 0 : (tier === 1 ? 7 : 12) * zoom;
 
   ctx.fillStyle = baseColor;

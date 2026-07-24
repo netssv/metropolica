@@ -45,7 +45,7 @@ export function useMapCamera(canvasRef: CanvasRef, cols: number, rows: number): 
   }, [canvasRef, cols, rows]);
   const zoomAt = useCallback((x: number, y: number, factor: number) => {
     const oldZoom = stateRef.current.zoom;
-    const newZoom = Math.max(0.3, Math.min(4, oldZoom * factor));
+    const newZoom = Math.max(0.3, Math.min(8, oldZoom * factor));
     const ix = (x - stateRef.current.ox) / oldZoom;
     const iy = (y - stateRef.current.oy) / oldZoom;
     stateRef.current.zoom = newZoom;

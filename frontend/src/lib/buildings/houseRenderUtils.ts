@@ -7,7 +7,29 @@ function darken(hex: string, r: number): string {
 
 export { drawWindow, drawDoor } from './houseFeatures.ts';
 
-/** White isometric box walls (SW lit, SE shaded). */
+export interface HousePalette {
+  wallLight: string;
+  wallShade: string;
+  roof:      string;
+}
+
+export const HOUSE_PALETTES: HousePalette[] = [
+  // 0. Classic Cream & Red Roof
+  { wallLight: '#f2ede8', wallShade: '#d8d2cb', roof: '#b83232' },
+  // 1. Warm Terracotta Sand
+  { wallLight: '#f5ebe0', wallShade: '#e3d5ca', roof: '#8a5a3c' },
+  // 2. Coastal Slate Blue
+  { wallLight: '#e2e8f0', wallShade: '#cbd5e1', roof: '#4a5568' },
+  // 3. Pastel Sage Cream
+  { wallLight: '#e8efe9', wallShade: '#d2dfd4', roof: '#c05621' },
+];
+
+export function getHousePalette(seed = 0): HousePalette {
+  const idx = Math.abs(seed >>> 0) % HOUSE_PALETTES.length;
+  return HOUSE_PALETTES[idx];
+}
+
+/** White/colored isometric box walls (SW lit, SE shaded). */
 export function drawWhiteBox(
   ctx: CanvasRenderingContext2D,
   cx: number, base: number, hw: number, hh: number, height: number,
@@ -81,7 +103,7 @@ export function drawHipRoof(
   ctx.stroke();
 }
 
-/** Chimney on the NE back slope of the roof. */
+/** Chimney on the NW back-left slope of the roof. */
 export function drawChimney(
   ctx: CanvasRenderingContext2D,
   cx: number, base: number, hw: number, hh: number,
@@ -89,19 +111,22 @@ export function drawChimney(
   night: boolean, time: number, seed: number
 ) {
   const apexY = base - height - peak;
-  const neaveY = base - height - hh * 2;
-  const chBaseY = apexY + (neaveY - apexY) * 0.45;
-  const rx = cx + hw * 0.28;
-  const cw = 4 * zoom;
-  const ch = 7 * zoom;
+  const nweaveY = base - height - hh * 1.4;
+  const chBaseY = apexY + (nweaveY - apexY) * 0.40;
+  const rx = cx - hw * 0.25;
+  const cw = 3.5 * zoom;
+  const ch = 7.5 * zoom;
 
+  // Lit SW face
   ctx.fillStyle = '#f0ebe4';
-  ctx.fillRect(rx - cw * 0.5, chBaseY - ch, cw, ch);
+  ctx.fillRect(rx - cw * 0.5, chBaseY - ch, cw * 0.7, ch);
+  // Shaded SE face
   ctx.fillStyle = '#d4cec8';
-  ctx.fillRect(rx + cw * 0.2, chBaseY - ch, cw * 0.3, ch);
+  ctx.fillRect(rx + cw * 0.2, chBaseY - ch, cw * 0.4, ch);
 
+  // Top cap rim
   ctx.fillStyle = '#ccc6be';
-  ctx.fillRect(rx - cw * 0.7, chBaseY - ch - zoom, cw * 1.4, zoom * 1.2);
+  ctx.fillRect(rx - cw * 0.6, chBaseY - ch - zoom, cw * 1.3, zoom * 1.2);
 
   if (night) {
     ctx.fillStyle = 'rgba(220,228,220,0.25)';

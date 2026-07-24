@@ -128,14 +128,6 @@ export function renderFrame(timestamp: number) {
     if (!d.social?.atRisk) return;
     const zone = DISTRICT_ZONES.find((z) => z.id === d.id);
     if (!zone) return;
-    const alpha = 0.06 + 0.04 * Math.sin(gameTime * 3);
-    gameCtx.fillStyle = `rgba(239,68,68,${alpha})`;
-    gameCtx.fillRect(
-      zone.startCol * ts,
-      0,
-      (zone.endCol - zone.startCol + 1) * ts,
-      MAP_H
-    );
     // crisis banner
     const bx = (zone.startCol + (zone.endCol - zone.startCol) / 2) * ts;
     const by = ts * 1.5;

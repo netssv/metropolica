@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MAP_COLS, MAP_ROWS } from '../lib/constants';
 
-export type SelectedSpecialty = 'hospital' | 'mall-government' | undefined;
+export type SelectedSpecialty = 'hospital' | 'mall-government' | 'bank' | undefined;
 
 export function useGameState() {
   const [simState, setSimState] = useState<any>(null);

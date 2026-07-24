@@ -34,8 +34,8 @@ export function drawSidewalkInfrastructure(
   const graph = buildRoadGraph(map);
   const isBridgeNode = (node: RoadNode) => map[node.row]?.[node.col]?.type === 'bridge';
 
-  // 1. Clip region for non-intersection tiles
-  drawIntersectionHolesClip(ctx, graph, project, zoom);
+  // 1. Clip region for non-intersection tiles & map boundary
+  drawIntersectionHolesClip(ctx, graph, project, zoom, map);
 
   // 2. Draw sidewalk segments
   for (const [fromKey, neighbors] of graph) {
@@ -47,46 +47,9 @@ export function drawSidewalkInfrastructure(
       for (const side of ['left', 'right'] as Side[]) {
         const a = sidewalkPoint(project, from, to, side, zoom, map);
         const b = sidewalkPoint(project, to, from, oppositeSide(side), zoom, map);
-        const mixedApproach = isBridgeNode(from) !== isBridgeNode(to);
 
-        if (mixedApproach) {
-          const roadNode = isBridgeNode(from) ? to : from;
-          const bridgeNode = isBridgeNode(from) ? from : to;
-          const roadPoint = isBridgeNode(from) ? b : a;
-          const bridgePoint = isBridgeNode(from) ? a : b;
-          const roadCenter = project(roadNode.col, roadNode.row);
-          const bridgeCenter = project(bridgeNode.col, bridgeNode.row);
-          const edgeCenter = {
-            x: (roadCenter.x + bridgeCenter.x) / 2 + (ISO_TILE_W * zoom) / 2,
-            y: (roadCenter.y + bridgeCenter.y) / 2 + (ISO_TILE_H * zoom) / 2,
-          };
-          const roadEdge = {
-            x: edgeCenter.x + (roadPoint.x - (roadCenter.x + (ISO_TILE_W * zoom) / 2)),
-            y: edgeCenter.y + (roadPoint.y - (roadCenter.y + (ISO_TILE_H * zoom) / 2)),
-          };
-          const bridgeEdge = {
-            x: edgeCenter.x + (bridgePoint.x - (bridgeCenter.x + (ISO_TILE_W * zoom) / 2)),
-            y: edgeCenter.y + (bridgePoint.y - (bridgeCenter.y + (ISO_TILE_H * zoom) / 2)),
-          };
-
-          ctx.lineWidth = Math.max(3, zoom * 3.5);
-          ctx.strokeStyle = 'rgba(226, 218, 194, .82)';
-          ctx.beginPath();
-          ctx.moveTo(roadPoint.x, roadPoint.y);
-          ctx.lineTo(roadEdge.x, roadEdge.y);
-          ctx.stroke();
-
-          ctx.lineWidth = Math.max(1.25, zoom * 1.65);
-          ctx.strokeStyle = 'rgba(181, 193, 201, .78)';
-          ctx.beginPath();
-          ctx.moveTo(bridgeEdge.x, bridgeEdge.y);
-          ctx.lineTo(bridgePoint.x, bridgePoint.y);
-          ctx.stroke();
-          continue;
-        }
-
-        ctx.lineWidth = bridgeSegment ? Math.max(1.25, zoom * 1.65) : Math.max(3, zoom * 3.5);
-        ctx.strokeStyle = bridgeSegment ? 'rgba(181, 193, 201, .78)' : 'rgba(226, 218, 194, .82)';
+        ctx.lineWidth = Math.max(2.5, zoom * 3.2);
+        ctx.strokeStyle = 'rgba(226, 218, 194, .85)';
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);

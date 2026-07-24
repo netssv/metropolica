@@ -25,7 +25,7 @@ export default function Sidebar() {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ zones: true, services: true, mobility: false, public: false, utilities: false });
   const toggle = (group: string) => setOpenGroups(current => ({ ...current, [group]: !current[group] }));
   const selectTool = (tool: string) => { setCurrentTool(tool); setSelectedSpecialty(undefined); };
-  const selectCommercialSpecialty = (specialty: 'hospital' | 'mall-government') => { setCurrentTool('zone-c'); setSelectedSpecialty(specialty); };
+  const selectCommercialSpecialty = (specialty: 'hospital' | 'mall-government' | 'bank') => { setCurrentTool('zone-c'); setSelectedSpecialty(specialty); };
 
   return <aside id="hud-toolbar" aria-label="Menú de construcción de la ciudad">
     <div className="toolbar-title"><span>CONSTRUIR</span><small>Ciudad y servicios</small></div>
@@ -46,6 +46,7 @@ export default function Sidebar() {
     <MenuGroup title="Servicios públicos" icon="✚" open={openGroups.services} onToggle={() => toggle('services')}>
       <button className={`tool-btn ${selectedSpecialty === 'hospital' ? 'active' : ''}`} onClick={() => selectCommercialSpecialty('hospital')}><span className="tool-ico">🏥</span><span className="tool-name">Hospital</span><span className="tool-cost">{money(TOOL_COSTS.hospital)}</span></button>
       <button className={`tool-btn ${selectedSpecialty === 'mall-government' ? 'active' : ''}`} onClick={() => selectCommercialSpecialty('mall-government')}><span className="tool-ico">🏛️</span><span className="tool-name">Centro cívico</span><span className="tool-cost">{money(TOOL_COSTS['mall-government'])}</span></button>
+      <button className={`tool-btn ${selectedSpecialty === 'bank' ? 'active' : ''}`} onClick={() => selectCommercialSpecialty('bank')}><span className="tool-ico">🏦</span><span className="tool-name">Banco</span><span className="tool-cost">{money(TOOL_COSTS.bank)}</span></button>
       <FutureTool icon="🏫" name="Escuela" /><FutureTool icon="🚓" name="Policía" /><FutureTool icon="🚒" name="Bomberos" />
     </MenuGroup>
 

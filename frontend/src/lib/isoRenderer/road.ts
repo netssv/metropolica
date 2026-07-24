@@ -1,7 +1,9 @@
 import { ISO_TILE_W, ISO_TILE_H } from '../isoMath';
 import { PROCEDURAL_DETAIL_ZOOM } from '../buildingSprites';
 import { TileMap } from './types.ts';
-import { isRoadAt, isPlainRoadAt } from './helpers.ts';
+import { isRoadAt, isPlainRoadAt, isBridgeAt } from './helpers.ts';
+import { genericTune } from '../buildings/genericTuneState.ts';
+import { T } from '../constants';
 
 function roadConnections(map: TileMap | undefined, col: number, row: number) {
   return {
@@ -23,8 +25,12 @@ export function drawRoad(
   map?: TileMap,
   project?: (col: number, row: number) => { x: number; y: number }
 ) {
-  const hw = (ISO_TILE_W / 2) * zoom;
-  const hh = (ISO_TILE_H / 2) * zoom;
+  const bridgeTune = bridge ? genericTune.getParams('bridge') : null;
+  const scaleX = bridgeTune ? (bridgeTune.scaleX ?? 1.0) : 1.0;
+  const scaleY = bridgeTune ? (bridgeTune.scaleY ?? 1.0) : 1.0;
+
+  const hw = (ISO_TILE_W / 2) * zoom * scaleX;
+  const hh = (ISO_TILE_H / 2) * zoom * scaleY;
   const connections = roadConnections(map, col, row);
   const horizontal = connections.east || connections.west;
   const joinsRoad =
@@ -45,48 +51,64 @@ export function drawRoad(
     ctx.closePath();
     ctx.fill();
 
-    // 1. Heavy 3D Concrete Support Pillars underneath
-    const pierW = Math.max(4, zoom * 7);
-    const pierH = Math.max(10, zoom * 16);
-    ctx.fillStyle = '#495057';
-    ctx.fillRect(px + hw - pierW, py + hh + 4 * zoom, pierW * 2, pierH);
-    ctx.fillStyle = '#6c757d';
-    ctx.fillRect(px + hw - pierW / 2, py + hh + 4 * zoom, pierW, pierH);
+    // 1. Heavy 3D Concrete Support Pillars (Únicamente sobre agua profunda, nunca si colinda directamente con carretera)
+    const neighborTypes = [
+      map?.[row - 1]?.[col]?.type,
+      map?.[row + 1]?.[col]?.type,
+      map?.[row]?.[col - 1]?.type,
+      map?.[row]?.[col + 1]?.type,
+    ];
+    const isOverWater = neighborTypes.includes(T.WATER);
 
-    // 2. Thick 3D Concrete Deck Base
-    const deckH = joinsRoad ? Math.max(1, zoom * 1.6) : Math.max(4, zoom * 6);
-    ctx.fillStyle = '#343a40';
-    ctx.beginPath();
-    ctx.moveTo(px, py + hh + deckH);
-    ctx.lineTo(px + hw, py + hh * 2 + deckH);
-    ctx.lineTo(px + hw * 2, py + hh + deckH);
-    ctx.lineTo(px + hw * 2, py + hh);
-    ctx.lineTo(px + hw, py + hh * 2);
-    ctx.lineTo(px, py + hh);
-    ctx.closePath();
-    ctx.fill();
+    if (isOverWater && !joinsRoad) {
+      const basePilarH = bridgeTune ? (bridgeTune.height ?? 6) : 6;
+      const pierW = Math.max(4, zoom * 7);
+      const pierH = Math.max(10, zoom * (basePilarH * 2.6));
+      ctx.fillStyle = bridgeTune?.accentColor || '#495057';
+      ctx.fillRect(px + hw - pierW, py + hh + 4 * zoom, pierW * 2, pierH);
+      ctx.fillStyle = '#6c757d';
+      ctx.fillRect(px + hw - pierW / 2, py + hh + 4 * zoom, pierW, pierH);
+    }
 
-    // Side fascia face (light concrete)
-    ctx.fillStyle = '#6c757d';
-    ctx.beginPath();
-    ctx.moveTo(px, py + hh);
-    ctx.lineTo(px + hw, py + hh * 2);
-    ctx.lineTo(px + hw, py + hh * 2 + deckH);
-    ctx.lineTo(px, py + hh + deckH);
-    ctx.closePath();
-    ctx.fill();
+    // 2. Thick 3D Concrete Deck Base (Solo si es un tramo de puente flotante sobre agua)
+    const deckBaseMult = bridgeTune ? (bridgeTune.baseH ?? 44) / 44 : 1.0;
+    const deckH = joinsRoad ? 0 : Math.max(4, zoom * 6) * deckBaseMult;
+    
+    if (deckH > 0) {
+      // Dibujar base 3D inferior del muelle
+      ctx.fillStyle = '#343a40';
+      ctx.beginPath();
+      ctx.moveTo(px, py + hh + deckH);
+      ctx.lineTo(px + hw, py + hh * 2 + deckH);
+      ctx.lineTo(px + hw * 2, py + hh + deckH);
+      ctx.lineTo(px + hw * 2, py + hh);
+      ctx.lineTo(px + hw, py + hh * 2);
+      ctx.lineTo(px, py + hh);
+      ctx.closePath();
+      ctx.fill();
 
-    ctx.fillStyle = '#868e96';
-    ctx.beginPath();
-    ctx.moveTo(px + hw, py + hh * 2);
-    ctx.lineTo(px + hw * 2, py + hh);
-    ctx.lineTo(px + hw * 2, py + hh + deckH);
-    ctx.lineTo(px + hw, py + hh * 2 + deckH);
-    ctx.closePath();
-    ctx.fill();
+      // Caras laterales de concreto 3D
+      ctx.fillStyle = '#6c757d';
+      ctx.beginPath();
+      ctx.moveTo(px, py + hh);
+      ctx.lineTo(px + hw, py + hh * 2);
+      ctx.lineTo(px + hw, py + hh * 2 + deckH);
+      ctx.lineTo(px, py + hh + deckH);
+      ctx.closePath();
+      ctx.fill();
 
-    // Top concrete deck border rim
-    ctx.fillStyle = '#adb5bd';
+      ctx.fillStyle = '#868e96';
+      ctx.beginPath();
+      ctx.moveTo(px + hw, py + hh * 2);
+      ctx.lineTo(px + hw * 2, py + hh);
+      ctx.lineTo(px + hw * 2, py + hh + deckH);
+      ctx.lineTo(px + hw, py + hh * 2 + deckH);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Asfalto continuo igualado al tono estándar de carretera (#30363b)
+    ctx.fillStyle = '#30363b';
     ctx.beginPath();
     ctx.moveTo(px + hw, py);
     ctx.lineTo(px + hw * 2, py + hh);
@@ -95,46 +117,7 @@ export function drawRoad(
     ctx.closePath();
     ctx.fill();
 
-    // Asphalt surface
-    ctx.fillStyle = '#2c3238';
-    ctx.beginPath();
-    ctx.moveTo(px + hw, py + hh * 0.12);
-    ctx.lineTo(px + hw * 1.88, py + hh);
-    ctx.lineTo(px + hw, py + hh * 1.88);
-    ctx.lineTo(px + hw * 0.12, py + hh);
-    ctx.closePath();
-    ctx.fill();
-
-    const paintRoadApproach = (
-      a: [number, number],
-      b: [number, number],
-      ia: [number, number],
-      ib: [number, number]
-    ) => {
-      ctx.beginPath();
-      ctx.moveTo(px + a[0] * hw, py + a[1] * hh);
-      ctx.lineTo(px + b[0] * hw, py + b[1] * hh);
-      ctx.lineTo(px + ib[0] * hw, py + ib[1] * hh);
-      ctx.lineTo(px + ia[0] * hw, py + ia[1] * hh);
-      ctx.closePath();
-      ctx.fill();
-    };
-
-    ctx.fillStyle = '#2c3238';
-    if (isPlainRoadAt(map, col, row - 1)) {
-      paintRoadApproach([1, 0], [2, 1], [1, 0.12], [1.88, 1]);
-    }
-    if (isPlainRoadAt(map, col + 1, row)) {
-      paintRoadApproach([2, 1], [1, 2], [1.88, 1], [1, 1.88]);
-    }
-    if (isPlainRoadAt(map, col, row + 1)) {
-      paintRoadApproach([1, 2], [0, 1], [1, 1.88], [0.12, 1]);
-    }
-    if (isPlainRoadAt(map, col - 1, row)) {
-      paintRoadApproach([0, 1], [1, 0], [0.12, 1], [1, 0.12]);
-    }
-
-    ctx.fillStyle = 'rgba(7, 25, 38, 0.34)';
+    ctx.fillStyle = 'rgba(7, 25, 38, 0.2)';
     ctx.beginPath();
     ctx.moveTo(px + hw * 0.16, py + hh * 1.06);
     ctx.lineTo(px + hw, py + hh * 1.82);
@@ -172,70 +155,22 @@ export function drawRoad(
     (connections.east ? 1 : 0) +
     (connections.south ? 1 : 0) +
     (connections.west ? 1 : 0);
-  const isIntersection = connectedCount >= 3;
+  const isIntersection = connectedCount >= 3 || (connectedCount >= 2 && !((connections.north && connections.south) || (connections.east && connections.west)));
 
-  ctx.strokeStyle = bridge ? '#f8f9fa' : '#737b82';
+  // Si es intersección o cruce, renderizar limpia la zona central sin cruce de líneas discontinuas
+  ctx.strokeStyle = '#737b82';
   ctx.lineWidth = Math.max(1, zoom * 1.5);
-  ctx.setLineDash(
-    bridge
-      ? [Math.max(3, zoom * 4), Math.max(3, zoom * 3)]
-      : [Math.max(2, zoom * 3), Math.max(2, zoom * 2)]
-  );
+  ctx.setLineDash([Math.max(2, zoom * 3), Math.max(2, zoom * 2)]);
 
   for (const [connected, end] of arms) {
     if (!connected) continue;
-    const startX = isIntersection ? center.x + (end.x - center.x) * 0.38 : center.x;
-    const startY = isIntersection ? center.y + (end.y - center.y) * 0.38 : center.y;
+    // Detener la línea antes de ingresar a la caja central de la intersección
+    const startX = isIntersection ? center.x + (end.x - center.x) * 0.42 : center.x;
+    const startY = isIntersection ? center.y + (end.y - center.y) * 0.42 : center.y;
     ctx.beginPath();
     ctx.moveTo(startX, startY);
     ctx.lineTo(end.x, end.y);
     ctx.stroke();
   }
   ctx.setLineDash([]);
-
-  if (bridge && !isIntersection) {
-    const spanArms = horizontal ? [arms[1], arms[3]] : [arms[0], arms[2]];
-    const hasValidSpan = spanArms.every(([connected]) => connected);
-
-    if (hasValidSpan) {
-      const armA = spanArms[0][1];
-      const armB = spanArms[1][1];
-      const dx = armB.x - armA.x;
-      const dy = armB.y - armA.y;
-      const len = Math.max(1, Math.hypot(dx, dy));
-
-      const nx = (-dy / len) * (hw * 0.47);
-      const ny = (dx / len) * (hh * 0.47);
-
-      for (const side of [-1, 1]) {
-        const start = { x: armA.x + nx * side, y: armA.y + ny * side };
-        const finish = { x: armB.x + nx * side, y: armB.y + ny * side };
-
-        ctx.strokeStyle = '#3e4a54';
-        ctx.lineWidth = Math.max(2, zoom * 2.4);
-        ctx.beginPath();
-        ctx.moveTo(start.x, start.y - 3 * zoom);
-        ctx.lineTo(finish.x, finish.y - 3 * zoom);
-        ctx.stroke();
-
-        ctx.strokeStyle = '#c9d1d8';
-        ctx.lineWidth = Math.max(1, zoom * 0.85);
-        ctx.beginPath();
-        ctx.moveTo(start.x, start.y - 3.7 * zoom);
-        ctx.lineTo(finish.x, finish.y - 3.7 * zoom);
-        ctx.stroke();
-
-        for (const t of [0, 0.5]) {
-          const x = start.x + (finish.x - start.x) * t;
-          const y = start.y + (finish.y - start.y) * t;
-          ctx.strokeStyle = '#697782';
-          ctx.lineWidth = Math.max(1, zoom * 1.15);
-          ctx.beginPath();
-          ctx.moveTo(x, y + 1 * zoom);
-          ctx.lineTo(x, y - 4 * zoom);
-          ctx.stroke();
-        }
-      }
-    }
-  }
 }

@@ -1,5 +1,6 @@
 import { T } from '../constants';
 import { clamp } from './utils.ts';
+import { genericTune } from '../buildings/genericTuneState.ts';
 
 declare let tileMap: any[][];
 
@@ -23,17 +24,20 @@ export function drawRoadTile(
   const horiz = rW || rE;
   const vert = rN || rS;
 
+  const tune = genericTune.getParams('road');
+  const curbThickness = tune.baseH ?? 2;
+
   ctx.fillStyle = '#3a3a48';
   ctx.fillRect(wx, wy, ts, ts);
 
   ctx.fillStyle = '#56566a';
-  if (!rN) ctx.fillRect(wx, wy, ts, 2);
-  if (!rS) ctx.fillRect(wx, wy + ts - 2, ts, 2);
-  if (!rW) ctx.fillRect(wx, wy, 2, ts);
-  if (!rE) ctx.fillRect(wx + ts - 2, wy, 2, ts);
+  if (!rN) ctx.fillRect(wx, wy, ts, curbThickness);
+  if (!rS) ctx.fillRect(wx, wy + ts - curbThickness, ts, curbThickness);
+  if (!rW) ctx.fillRect(wx, wy, curbThickness, ts);
+  if (!rE) ctx.fillRect(wx + ts - curbThickness, wy, curbThickness, ts);
 
-  ctx.fillStyle = '#f1c232';
-  const dw = ts * 0.08;
+  ctx.fillStyle = tune.accentColor || '#f1c232';
+  const dw = ts * 0.08 * (tune.scaleX ?? 1.0);
 
   if (horiz && vert) {
     ctx.fillRect(wx + ts * 0.05, wy + ts * 0.46, ts * 0.35, dw);
@@ -60,28 +64,36 @@ export function drawBridgeTile(
   row: number
 ) {
   const bridgeH = isRoad(col - 1, row) || isRoad(col + 1, row);
+  const tune = genericTune.getParams('bridge');
+  const deckPercent = (tune.baseH ?? 44) / 100;
+  const pilarH = tune.height ?? 6;
+  const postColor = tune.accentColor || '#888888';
+
   ctx.fillStyle = '#1e4d8c';
   ctx.fillRect(wx, wy, ts, ts);
+
   if (bridgeH) {
+    const deckY = wy + ts * (0.5 - deckPercent / 2);
+    const deckH = ts * deckPercent;
+    
+    // Pilares / Soporte inferior
     ctx.fillStyle = '#5a4a38';
-    ctx.fillRect(wx + ts * 0.0, wy + ts * 0.2, ts, ts * 0.6);
+    ctx.fillRect(wx + ts * 0.0, deckY - pilarH * 0.5, ts, deckH + pilarH);
+
+    // Calzada principal
     ctx.fillStyle = '#6b5740';
-    ctx.fillRect(wx + ts * 0.0, wy + ts * 0.28, ts, ts * 0.44);
-    ctx.fillStyle = '#888';
-    for (let i = 0; i < 4; i++) {
-      ctx.fillRect(wx + ts * (0.14 + i * 0.22), wy + ts * 0.22, ts * 0.05, ts * 0.1);
-      ctx.fillRect(wx + ts * (0.14 + i * 0.22), wy + ts * 0.68, ts * 0.05, ts * 0.1);
-    }
+    ctx.fillRect(wx + ts * 0.0, deckY, ts, deckH);
   } else {
+    const deckX = wx + ts * (0.5 - deckPercent / 2);
+    const deckW = ts * deckPercent;
+
+    // Pilares / Soporte inferior
     ctx.fillStyle = '#5a4a38';
-    ctx.fillRect(wx + ts * 0.2, wy + ts * 0.0, ts * 0.6, ts);
+    ctx.fillRect(deckX - pilarH * 0.5, wy + ts * 0.0, deckW + pilarH, ts);
+
+    // Calzada principal
     ctx.fillStyle = '#6b5740';
-    ctx.fillRect(wx + ts * 0.28, wy + ts * 0.0, ts * 0.44, ts);
-    ctx.fillStyle = '#888';
-    for (let i = 0; i < 4; i++) {
-      ctx.fillRect(wx + ts * 0.22, wy + ts * (0.14 + i * 0.22), ts * 0.1, ts * 0.05);
-      ctx.fillRect(wx + ts * 0.68, wy + ts * (0.14 + i * 0.22), ts * 0.1, ts * 0.05);
-    }
+    ctx.fillRect(deckX, wy + ts * 0.0, deckW, ts);
   }
 }
 

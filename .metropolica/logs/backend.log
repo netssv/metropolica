@@ -1,0 +1,16 @@
+Metropolica Server running at http://localhost:3000
+Change detected in '/home/netss/Projects/Metropolica/shared/economyBalance.ts'
+Restarting '/home/netss/Projects/Metropolica/scripts/serve.ts'
+Metropolica Server running at http://localhost:3000
+Change detected in '/home/netss/Projects/Metropolica/src/core/commands/index.ts'
+Restarting '/home/netss/Projects/Metropolica/scripts/serve.ts'
+Metropolica Server running at http://localhost:3000
+Change detected in '/home/netss/Projects/Metropolica/src/simulation/citizens/classification.ts'
+Restarting '/home/netss/Projects/Metropolica/scripts/serve.ts'
+Metropolica Server running at http://localhost:3000
+Change detected in '/home/netss/Projects/Metropolica/src/simulation/tileCensus.ts'
+Restarting '/home/netss/Projects/Metropolica/scripts/serve.ts'
+Metropolica Server running at http://localhost:3000
+Change detected in '/home/netss/Projects/Metropolica/src/simulation/citizens/classification.ts'
+Restarting '/home/netss/Projects/Metropolica/scripts/serve.ts'
+Metropolica Server running at http://localhost:3000

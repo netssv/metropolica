@@ -11,7 +11,8 @@ import { computeHouseRoles } from '../../lib/buildings/houseCluster';
 import { computeHousingByTile, computeMarkerSet } from './mapStatePreprocessors';
 import { drawBaseTerrainAndRoads, repaintBridges, drawTrafficSignals } from './mapTileRenderers';
 import { drawBuildingsLayer } from './buildingLayerRenderer';
-import { updateTransitAndOverlays } from './renderLoopHelpers';
+import { devManager } from '../../lib/devModeManager';
+import { prepareTransitUpdate, finishOverlaysAndDiagnostics } from './renderLoopHelpers';
 
 type Props = {
   canvasRef: any;
@@ -132,7 +133,12 @@ export function useMapRenderer({
           (simStateRef.current?.citizens ? Object.values(simStateRef.current.citizens).flat() : []) as any[]
         );
 
-        // 4. Buildings Layer
+        // Prepare Transit Update & Bucket Tasks BEFORE Building Depth Loop
+        const { householdIncomes, startTransit } = prepareTransitUpdate(
+          ctx, transit, time, { ox, oy, zoom }, map, simStateRef.current, project, selectedEntityRef.current
+        );
+
+        // 4. Buildings & Interleaved Vehicles (strict depth order)
         const bldgResult = drawBuildingsLayer(
           ctx,
           drawOrder,
@@ -149,11 +155,20 @@ export function useMapRenderer({
           simStateRef.current,
           housingByTile,
           houseRoles,
-          markerSet
+          markerSet,
+          transit,
+          householdIncomes
         );
 
         // 5. Traffic Signals
         drawTrafficSignals(ctx, drawOrder, canvas.width, canvas.height, zoom, margin, map, project, time);
+
+        // Flush any remaining transit vehicles
+        transit.drawRemainingVehicles(
+          ctx, ox, oy, zoom, time, simStateRef.current?.speed ?? 1,
+          (simStateRef.current?.citizens ? Object.values(simStateRef.current.citizens).flat() : []) as any[],
+          householdIncomes, true, project
+        );
 
         timingState.tileDrawMs += performance.now() - tileStart;
         timingState.proceduralBuildingMs += bldgResult.proceduralBuildingMs;
@@ -175,12 +190,11 @@ export function useMapRenderer({
           sampleStart = performance.now();
         }
 
-        // 6-9. Transit, Overlays & Diagnostics
-        const transitRes = updateTransitAndOverlays(
+        // 6-9. Overlays & Diagnostics
+        const transitRes = finishOverlaysAndDiagnostics(
           ctx,
           canvas,
-          transit,
-          time,
+          startTransit,
           { ox, oy, zoom },
           map,
           simStateRef.current,

@@ -74,6 +74,9 @@ export function createCitizenTransit() {
     }
   };
 
+  const vehiclesByTile = new Map<string, Array<{ trip: Trip; decisionSpeed: number; queueDepth: number; dt: number; before: number }>>();
+  const drawnVehicles = new Set<string>();
+
   return {
     syncState(day: number, hour: number) { syncedDay = day; syncedHour = hour; },
 
@@ -83,6 +86,7 @@ export function createCitizenTransit() {
       render = true, project?: Projection, selectedCitizenId?: string,
       postCommand?: (command: Record<string, unknown>) => Promise<unknown>,
       householdIncomes: Record<string, number> = {},
+      updateMode?: 'UPDATE_ONLY' | 'FULL',
     ) {
       day = syncedDay ?? day;
       hour = syncedHour ?? hour;
@@ -103,8 +107,10 @@ export function createCitizenTransit() {
       const reservations = new Map<string, string>();
       const rendered: RenderedVehicle[] = [];
 
+      vehiclesByTile.clear();
+      drawnVehicles.clear();
+
       for (const trip of trips.values()) {
-        // Vehicles waiting for their staggered departure slot are invisible (inside building).
         if (trip.departureTime > time) continue;
 
         const wasArrived = trip.progress >= 1;
@@ -115,27 +121,80 @@ export function createCitizenTransit() {
 
         const before = trip.progress;
 
-        // Advance route progress for moving vehicles.
         if (!wasArrived && decision.speed > 0) {
           trip.progress = Math.min(1, trip.progress + (dt / 8) * decision.speed);
         }
 
-        // Emit consumption event on first arrival frame.
         maybeEmitConsumption(trip, wasArrived, citizens, hour, day, sent, postCommand);
 
-        // Run arrival animation (starts the same frame progress hits 1).
         if (trip.progress >= 1) {
           advanceArrival(trip, dt);
         }
 
-        // Try to start queued next trip once unboarding animation completes.
         tryDequeueTrip(trip, pending, citizens, graphRef.value, buildMakeTrip);
 
+        // Compute current tile key for isometric depth sorting
+        const routePosition = trip.progress * Math.max(0, trip.route.length - 1);
+        const segment = Math.min(Math.max(0, trip.route.length - 2), Math.floor(routePosition));
+        const local = routePosition - segment;
+        const from = trip.route[segment];
+        const to = trip.route[segment + 1];
+        const currentTile = trip.progress >= 1 ? trip.target : (local < 0.5 ? from : (to ?? from));
+        const tileKey = currentTile ? `${currentTile.col},${currentTile.row}` : '';
+
+        const task = { trip, decisionSpeed: decision.speed, queueDepth: decision.queueDepth, dt, before };
+        const list = vehiclesByTile.get(tileKey) ?? [];
+        list.push(task);
+        vehiclesByTile.set(tileKey, list);
+
+        if (updateMode !== 'UPDATE_ONLY') {
+          renderVehicle(
+            ctx, trip, rendered, positions,
+            ox, oy, zoom, dt, before, time, simulationSpeed,
+            decision.speed, decision.queueDepth, citizens, householdIncomes, render, project,
+          );
+          drawnVehicles.add(trip.citizenId);
+        }
+      }
+    },
+
+    drawVehiclesForTile(
+      ctx: CanvasRenderingContext2D, col: number, row: number,
+      ox: number, oy: number, zoom: number, time: number, simulationSpeed: number,
+      citizens: Citizen[], householdIncomes: Record<string, number>,
+      render = true, project?: Projection
+    ) {
+      const tileKey = `${col},${row}`;
+      const tasks = vehiclesByTile.get(tileKey);
+      if (!tasks?.length) return;
+
+      for (const t of tasks) {
+        if (drawnVehicles.has(t.trip.citizenId)) continue;
         renderVehicle(
-          ctx, trip, rendered, positions,
-          ox, oy, zoom, dt, before, time, simulationSpeed,
-          decision.speed, decision.queueDepth, citizens, householdIncomes, render, project,
+          ctx, t.trip, [], positions,
+          ox, oy, zoom, t.dt, t.before, time, simulationSpeed,
+          t.decisionSpeed, t.queueDepth, citizens, householdIncomes, render, project
         );
+        drawnVehicles.add(t.trip.citizenId);
+      }
+    },
+
+    drawRemainingVehicles(
+      ctx: CanvasRenderingContext2D,
+      ox: number, oy: number, zoom: number, time: number, simulationSpeed: number,
+      citizens: Citizen[], householdIncomes: Record<string, number>,
+      render = true, project?: Projection
+    ) {
+      for (const tasks of vehiclesByTile.values()) {
+        for (const t of tasks) {
+          if (drawnVehicles.has(t.trip.citizenId)) continue;
+          renderVehicle(
+            ctx, t.trip, [], positions,
+            ox, oy, zoom, t.dt, t.before, time, simulationSpeed,
+            t.decisionSpeed, t.queueDepth, citizens, householdIncomes, render, project
+          );
+          drawnVehicles.add(t.trip.citizenId);
+        }
       }
     },
 

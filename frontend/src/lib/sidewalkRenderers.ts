@@ -6,14 +6,32 @@ export function drawIntersectionHolesClip(
   ctx: CanvasRenderingContext2D,
   graph: RoadGraph,
   project: (col: number, row: number) => { x: number; y: number },
-  zoom: number
+  zoom: number,
+  map?: any[][]
 ) {
   const hw = (ISO_TILE_W * zoom) / 2;
   const hh = (ISO_TILE_H * zoom) / 2;
 
   ctx.save();
   ctx.beginPath();
-  ctx.rect(-8000, -8000, 16000, 16000);
+  if (map && map.length > 0 && map[0] && map[0].length > 0) {
+    const maxRow = map.length - 1;
+    const maxCol = map[0].length - 1;
+
+    const p00 = project(0, 0);
+    const pMaxC0 = project(maxCol, 0);
+    const pMaxCMaxR = project(maxCol, maxRow);
+    const p0MaxR = project(0, maxRow);
+
+    ctx.moveTo(p00.x + hw, p00.y);
+    ctx.lineTo(pMaxC0.x + hw * 2, pMaxC0.y + hh);
+    ctx.lineTo(pMaxCMaxR.x + hw, pMaxCMaxR.y + hh * 2);
+    ctx.lineTo(p0MaxR.x, p0MaxR.y + hh);
+    ctx.closePath();
+  } else {
+    ctx.rect(-8000, -8000, 16000, 16000);
+  }
+
   for (const [nodeKey, neighbors] of graph) {
     if (neighbors.length < 3) continue;
     const [c, r] = nodeKey.split(',').map(Number);

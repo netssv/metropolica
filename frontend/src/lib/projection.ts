@@ -55,10 +55,16 @@ export function createProjection(options: ProjectionOptions): Projection {
 export function screenToGrid(x: number, y: number, options: ProjectionOptions): { col: number; row: number } {
   const project = createProjection(options);
   let best = { col: -1, row: -1, distance: Infinity };
+  const hw = (ISO_TILE_W / 2) * options.zoom;
+  const hh = (ISO_TILE_H / 2) * options.zoom;
+
   for (let row = 0; row < options.rows; row++) {
     for (let col = 0; col < options.cols; col++) {
-      const point = project(col, row);
-      const distance = Math.hypot(x - point.x - ISO_TILE_W * options.zoom / 2, y - point.y - ISO_TILE_H * options.zoom / 2);
+      const p = project(col, row);
+      // The drawn diamond has top vertex at (p.x + hw, p.y) and center at (p.x + hw, p.y + hh)
+      const centerX = p.x + hw;
+      const centerY = p.y + hh;
+      const distance = Math.hypot(x - centerX, y - centerY);
       if (distance < best.distance) best = { col, row, distance };
     }
   }

@@ -29,6 +29,7 @@ export type Tier = 0 | 1 | 2;
 export type BuildingSpecialty =
   | 'hospital'
   | 'mall-government'
+  | 'bank'
   | 'fish-market'
   | 'pier'
   | 'customs'

@@ -5,6 +5,7 @@ export interface TileCensus {
   residencial: { total: number; casa: number; duplex: number; apartamento: number };
   comercial: number;
   mallGovernment: number;
+  banco: number;
   industrial: number;
   parque: number;
   calle: number;
@@ -17,7 +18,7 @@ export interface TileCensus {
 
 export const emptyTileCensus = (): TileCensus => ({
   residencial: { total: 0, casa: 0, duplex: 0, apartamento: 0 },
-  comercial: 0, mallGovernment: 0, industrial: 0, parque: 0, calle: 0,
+  comercial: 0, mallGovernment: 0, banco: 0, industrial: 0, parque: 0, calle: 0,
   centralElectrica: 0, agua: 0, terreno: 0, hogaresAsignados: 0, residencialesOcupados: 0
 });
 
@@ -39,6 +40,7 @@ export function censusTiles(tiles: TileState[], citizens: Pick<Citizen, 'househo
       residential.set(`${tile.col},${tile.row}`, tile);
     } else if (type === 'bldg-c' || type === 'zone-c') {
       if (tile.specialty === 'mall-government') result.mallGovernment++;
+      else if (tile.specialty === 'bank') result.banco++;
       else result.comercial++;
     } else if (type === 'bldg-i' || type === 'zone-i') result.industrial++;
     else if (type === 'park') result.parque++;

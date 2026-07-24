@@ -8,6 +8,7 @@
 @import url('./css/hud_1.css');
 @import url('./css/hud_2.css');
 @import url('./css/dashboard.css');
+@import url('./css/devMode.css');
 .menu-overlay {
   position: fixed;
   top: 0; left: 0; width: 100vw; height: 100vh;

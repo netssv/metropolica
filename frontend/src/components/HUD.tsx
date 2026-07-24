@@ -1,6 +1,25 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useGameContext } from '../hooks/GameContext';
+import { useDevMode } from '../hooks/useDevMode';
+
+function DevModeButton() {
+  const { isActive, toggleDevMode } = useDevMode();
+  return (
+    <button
+      className={`hud-icon-btn ${isActive ? 'active' : ''}`}
+      onClick={toggleDevMode}
+      title="Modo Desarrollador (Alt + Shift + D)"
+      style={{
+        color: isActive ? '#00e6b4' : 'inherit',
+        borderColor: isActive ? 'rgba(0, 230, 180, 0.6)' : undefined,
+        fontWeight: 700,
+      }}
+    >
+      🛠️ DEV
+    </button>
+  );
+}
 
 export default function HUD() {
   const { simState, setIsMenuOpen, fetchState } = useGameContext();
@@ -111,6 +130,8 @@ export default function HUD() {
         {[1, 2, 4, 8].map(value => <button key={value} className={`hud-icon-btn ${speed === value ? 'active' : ''} ${pendingAction === `speed-${value}` ? 'pending' : ''}`} disabled={pendingAction !== null} onClick={() => setSpeed(value)}>{pendingAction === `speed-${value}` ? '…' : `${value}×`}</button>)}
         <div className="hud-sep"></div>
         <button className="hud-icon-btn" onClick={() => setIsMenuOpen(true)}>↺</button>
+        <div className="hud-sep"></div>
+        <DevModeButton />
       </div>
     </header>
   );
